@@ -6,7 +6,8 @@ regardless of the original input format (e.g., text files, JSON, GUI strings).
 
 from typing import List, Any
 from abc import ABC, abstractmethod
-
+from core.utils.KB_generate.kb_generate import ground_kb
+from core.utils.KB_generate.knowledge_base import KnowledgeBase
 
 class FutoshikiData:
     """
@@ -140,15 +141,14 @@ class AlgorithmAdapter:
 
     def to_fol(self) -> List[str]:
         """
-        Formats the puzzle data into First Order Logic (FOL) CNF clauses.
-        Returns a Knowledge Base (KB) structure (e.g., list of strings or logic objects).
+        Converts FutoshikiData into a grounded CNF KnowledgeBase
+        ready for forward chaining, backward chaining, or A*.
         """
-        # TODO: Convert numeric grid/constraints into FOL statements (e.g., "LessThan(X1, Y1)")
-        clauses = []
-        # Example pseudo-conversion placeholder
-        clauses.append(f"GridSize({self.data.size})")
-        # Add your precise FOL transformation logic here
-        return clauses
+        puzzle  = futoshiki_to_puzzle_dict(self.data)
+        clauses = ground_kb(self.data.size, puzzle)
+        kb      = KnowledgeBase(clauses, self.data.size)
+        kb.simplify()   # run initial unit propagation from given clues
+        return kb
 
     def to_backtrack(self) -> dict:
         """
@@ -188,3 +188,48 @@ class AlgorithmAdapter:
         """Convenience function acting directly like `TextParserToBacktrack`."""
         standard_data = ParserFactory.get_standard_data(source_filepath, source_type="text")
         return cls(standard_data).to_backtrack()
+
+def futoshiki_to_puzzle_dict(data: FutoshikiData) -> dict:
+        """
+        Converts FutoshikiData (0-indexed) into the puzzle dict
+        that ground_kb() expects (1-indexed).
+        """
+        N = data.size
+        given     = {}
+        less_h    = set()
+        greater_h = set()
+        less_v    = set()
+        greater_v = set()
+
+        # Grid: convert 0-indexed (r,c) → 1-indexed (i,j)
+        for r in range(N):
+            for c in range(N):
+                v = data.grid[r][c]
+                if v != 0:
+                    given[(r + 1, c + 1)] = v
+
+        # Horizontal constraints: data.h_constraints[r][c] covers col c and c+1
+        # In 1-indexed terms: row i, between col j and j+1
+        for r in range(N):
+            for c in range(N - 1):
+                val = data.h_constraints[r][c]
+                i, j = r + 1, c + 1
+                if val ==  1: less_h.add((i, j))
+                if val == -1: greater_h.add((i, j))
+
+        # Vertical constraints: data.v_constraints[r][c] covers row r and r+1
+        # In 1-indexed terms: between row i and i+1, at col j
+        for r in range(N - 1):
+            for c in range(N):
+                val = data.v_constraints[r][c]
+                i, j = r + 1, c + 1
+                if val ==  1: less_v.add((i, j))
+                if val == -1: greater_v.add((i, j))
+
+        return {
+            'given':     given,
+            'less_h':    less_h,
+            'greater_h': greater_h,
+            'less_v':    less_v,
+            'greater_v': greater_v,
+        }
