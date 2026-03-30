@@ -1,7 +1,7 @@
 """
 Parser for Futoshiki puzzles using the Adapter Pattern.
 This allows the solvers (A*, FOL, Backtracking) to use a unified data structure
-regardless of the original input format (e.g., text files, JSON, GUI strings).
+from text file inputs.
 """
 
 from typing import List, Any
@@ -83,37 +83,23 @@ class TextParserAdapter(BaseParser):
         return FutoshikiData(size=n, grid=grid, h_constraints=h_constraints, v_constraints=v_constraints)
 
 
-class JSONParserAdapter(BaseParser):
-    """
-    Example of another format adapter. 
-    Could be used later if inputs come from a Web/GUI API.
-    """
-    def parse(self, json_data: dict) -> FutoshikiData:
-        # Just an example matching standard target format
-        n = json_data.get('size', 0)
-        grid = json_data.get('grid', [])
-        h_const = json_data.get('h_constraints', [])
-        v_const = json_data.get('v_constraints', [])
-        return FutoshikiData(size=n, grid=grid, h_constraints=h_const, v_constraints=v_const)
-
-
 class ParserFactory:
     """
     Factory to instantiate the correct Adapter and retrieve the standardized data model.
     """
     @classmethod
-    def get_standard_data(cls, source: Any, source_type: str = "text") -> FutoshikiData:
+    def get_standard_data(cls, source: str) -> FutoshikiData:
         """
-        Instantiates appropriate adapter and returns the `FutoshikiData` model
+        Instantiates TextParserAdapter and returns the `FutoshikiData` model
         ready to be passed to A*, Backtracking, or FOL solvers.
-        """
-        if source_type == "text":
-            adapter = TextParserAdapter()
-        elif source_type == "json":
-            adapter = JSONParserAdapter()
-        else:
-            raise ValueError(f"Unknown parser source type: {source_type}")
+        
+        Args:
+            source: Filepath to the text file containing the puzzle
             
+        Returns:
+            FutoshikiData object with parsed puzzle data
+        """
+        adapter = TextParserAdapter()
         return adapter.parse(source)
 
 
@@ -174,19 +160,19 @@ class AlgorithmAdapter:
     @classmethod
     def convert_text_to_astar(cls, source_filepath: str) -> dict:
         """Convenience function acting directly like `TextParserToAstar`."""
-        standard_data = ParserFactory.get_standard_data(source_filepath, source_type="text")
+        standard_data = ParserFactory.get_standard_data(source_filepath)
         return cls(standard_data).to_astar()
 
     @classmethod
     def convert_text_to_fol(cls, source_filepath: str) -> List[str]:
         """Convenience function acting directly like `TextParserToFOL`."""
-        standard_data = ParserFactory.get_standard_data(source_filepath, source_type="text")
+        standard_data = ParserFactory.get_standard_data(source_filepath)
         return cls(standard_data).to_fol()
 
     @classmethod
     def convert_text_to_backtrack(cls, source_filepath: str) -> dict:
         """Convenience function acting directly like `TextParserToBacktrack`."""
-        standard_data = ParserFactory.get_standard_data(source_filepath, source_type="text")
+        standard_data = ParserFactory.get_standard_data(source_filepath)
         return cls(standard_data).to_backtrack()
 
 def futoshiki_to_puzzle_dict(data: FutoshikiData) -> dict:

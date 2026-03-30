@@ -2,10 +2,10 @@
 **File Location**: `src/core/problem/parser.py`
 
 ## 1. How It Works
-The parsing module uses the **Adapter Design Pattern** to ensure we can read any arbitrary puzzle format (Text, JSON, etc.) and seamlessly convert it for multiple AI algorithms (A*, FOL, Backtracking) without modifying the algorithmic logic itself.
+The parsing module uses the **Adapter Design Pattern** to read text puzzle files and seamlessly convert them for multiple AI algorithms (A*, FOL, Backtracking) without modifying the algorithmic logic itself.
 
 It operates in **two steps**:
-1. **Source Adapter (`BaseParser`)**: Reads raw files (e.g., text from `test_generate/*.txt`) and converts them into a completely uniform intermediate object called `FutoshikiData`.
+1. **Source Adapter (`BaseParser`)**: Reads text files (from `test_generate/*.txt`) and converts them into a completely uniform intermediate object called `FutoshikiData`.
 2. **Algorithm Adapter (`AlgorithmAdapter`)**: Takes the intermediate `FutoshikiData` and translates it into the EXACT data types or setup structures your specific algorithm (A*, FOL, CSP Backtracking) needs.
 
 ---
@@ -63,11 +63,11 @@ As algorithms evolve, you will need to update exactly **what** gets returned to 
    ```python
    @classmethod
    def convert_text_to_fc(cls, source_filepath: str):
-       standard_data = ParserFactory.get_standard_data(source_filepath, source_type="text")
+       standard_data = ParserFactory.get_standard_data(source_filepath)
        return cls(standard_data).to_forward_chaining()
    ```
 
 **To Add a Brand New Input Form (e.g., Web App JSON string):**
-1. Create a class under `BaseParser` (e.g. `JSONParserAdapter`).
+1. Create a class implementing `BaseParser` (e.g. `JSONParserAdapter`).
 2. Make it output standard `FutoshikiData`.
-3. Inform the `ParserFactory` about it. The `AlgorithmAdapter` structures will automatically know how to handle the new format without extra work!
+3. Update the `ParserFactory.get_standard_data()` method to support the new format. The `AlgorithmAdapter` structures will automatically know how to handle the new format without extra work!
