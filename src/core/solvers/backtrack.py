@@ -432,11 +432,15 @@ class BacktrackingSolver(BaseSolver):
                 # Recurse
                 if self._backtrack(limit):
                     return True
+                # Only count as backtrack if recursion didn't find solution
+                self.metrics.inc_backtracks()
+            else:
+                # Forward check failed - also a backtrack
+                self.metrics.inc_backtracks()
             
-            # Backtrack - restore state
+            # Restore state
             self.grid[row][col] = 0
             self.domains = saved_domains
-            self.metrics.inc_backtracks()
         
         return False
     
