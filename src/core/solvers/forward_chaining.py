@@ -27,6 +27,7 @@ from ..utils.KB_generate.clause import Literal, pos, neg
 from ..utils.KB_generate.propositions import Val
 from ..utils.KB_generate.kb_generate import ground_kb
 from ..utils.KB_generate.knowledge_base import KnowledgeBase
+from ..problem.parser import futoshiki_to_puzzle_dict
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -293,66 +294,10 @@ class ForwardChainingSolver(BaseSolver):
     def __init__(self, problem: Any, *, name: Optional[str] = None) -> None:
         super().__init__(problem, name=name or "ForwardChaining")
 
-        self.n             = problem.size
-        self.h_constraints = problem.h_constraints
-        self.v_constraints = problem.v_constraints
-        self._puzzle       = self._build_puzzle_dict(problem)
+        self.n       = problem.size
+        self._puzzle = futoshiki_to_puzzle_dict(problem)
 
     # ── helpers ───────────────────────────────────────────────────────────
-
-    def _build_puzzle_dict(self, problem: Any) -> Dict[str, Any]:
-        """
-        Translate the problem object into the dict that ground_kb() expects:
-
-            {
-                "given":     {(i, j): v, ...},   # 1-indexed
-                "less_h":    {(i, j), ...},       # cell left of constraint
-                "greater_h": {(i, j), ...},
-                "less_v":    {(i, j), ...},       # cell above constraint
-                "greater_v": {(i, j), ...},
-            }
-
-        Convention (matching ground_kb):
-            h_constraints[r][c] ==  1  →  grid[r][c] < grid[r][c+1]  →  less_h
-            h_constraints[r][c] == -1  →  grid[r][c] > grid[r][c+1]  →  greater_h
-            v_constraints[r][c] ==  1  →  grid[r][c] < grid[r+1][c]  →  less_v
-            v_constraints[r][c] == -1  →  grid[r][c] > grid[r+1][c]  →  greater_v
-        All indices converted from 0-indexed (problem) to 1-indexed (ground_kb).
-        """
-        given     : Dict[Tuple[int, int], int] = {}
-        less_h    : Set[Tuple[int, int]]        = set()
-        greater_h : Set[Tuple[int, int]]        = set()
-        less_v    : Set[Tuple[int, int]]        = set()
-        greater_v : Set[Tuple[int, int]]        = set()
-
-        for r in range(self.n):
-            for c in range(self.n):
-                i, j = r + 1, c + 1            # 0-indexed → 1-indexed
-
-                if problem.grid[r][c] != 0:
-                    given[(i, j)] = problem.grid[r][c]
-
-                if c < self.n - 1:             # horizontal constraint at (r,c)
-                    hc = problem.h_constraints[r][c]
-                    if hc == 1:
-                        less_h.add((i, j))
-                    elif hc == -1:
-                        greater_h.add((i, j))
-
-                if r < self.n - 1:             # vertical constraint at (r,c)
-                    vc = problem.v_constraints[r][c]
-                    if vc == 1:
-                        less_v.add((i, j))
-                    elif vc == -1:
-                        greater_v.add((i, j))
-
-        return {
-            "given"    : given,
-            "less_h"   : less_h,
-            "greater_h": greater_h,
-            "less_v"   : less_v,
-            "greater_v": greater_v,
-        }
 
     def _denial_clause(self, solution: List[List[int]]) -> frozenset:
         """
