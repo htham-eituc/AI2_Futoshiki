@@ -9,9 +9,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Add src to path for imports from core
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from solver import solve_puzzle
 from core.solvers.base_solver import SolverFactory
 from core.solvers.forward_chaining import ForwardChainingSolver
+from core.solvers.backtrack import BacktrackingSolver
 from core.utils.metrics import GLOBAL_METRICS_STORE
 from core.problem.parser import ParserFactory, FutoshikiData
 
@@ -122,20 +122,15 @@ def run_tests(solver_name: str = "backtracking"):
 			# Parse puzzle using FutoshikiData from parser
 			futoshiki_data = ParserFactory.get_standard_data(str(puzzle_file))
 			n = futoshiki_data.size
-			grid = futoshiki_data.grid
 			h_constraints = futoshiki_data.h_constraints
 			v_constraints = futoshiki_data.v_constraints
-			
-			if solver_name == "forward_chaining":
-				# Use ForwardChainingSolver
-				solver = SolverFactory.create(solver_name, futoshiki_data)
-				result = solver.solve()
-				
-				solution = result.get("solution") if result else None
-				status = result.get("status") if result else "none"
-			else:
-				# Use backtracking solver
-				status, solution, backtracks = solve_puzzle(n, grid, h_constraints, v_constraints)
+
+			# Use SolverFactory for both solvers uniformly
+			solver = SolverFactory.create(solver_name, futoshiki_data)
+			result = solver.solve()
+
+			solution = result.get("solution") if result else None
+			status = result.get("status") if result else "none"
 
 			if solution is not None:
 				# Validate the solution
@@ -173,8 +168,8 @@ if __name__ == "__main__":
 	parser.add_argument(
 		"--solver",
 		choices=["backtracking", "forward_chaining"],
-		default="forward_chaining",
-		help="Which solver to use (default: forward_chaining)"
+		default="backtracking",
+		help="Which solver to use (default: backtracking)"
 	)
 	
 	args = parser.parse_args()
