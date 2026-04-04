@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Tuple
 from dataclasses import dataclass, field
-import copy
 
 # Add src directory to path for imports
 SRC_DIR = Path(__file__).resolve().parents[2]
@@ -57,6 +56,17 @@ class ComparisonResult:
     error: Optional[str] = None
 
 
+def _metrics_to_dict(metrics: Any) -> Dict[str, Any]:
+    """Normalize metrics to dict regardless of whether it's a dict or SolverMetrics object."""
+    if metrics is None:
+        return {}
+    if isinstance(metrics, dict):
+        return metrics
+    if hasattr(metrics, "to_dict"):
+        return metrics.to_dict()
+    return {}
+
+
 class VisualizationService:
     """Service layer for algorithm visualization."""
 
@@ -65,7 +75,7 @@ class VisualizationService:
         "src/test_generate",
         "data/inputs",
     ]
-    
+
     # Project root (parent of src/)
     PROJECT_ROOT = SRC_DIR.parent
 
@@ -73,7 +83,7 @@ class VisualizationService:
     def get_available_algorithms(cls) -> List[str]:
         """
         Get list of all registered solver algorithms.
-        
+
         Returns:
             List of algorithm names sorted alphabetically.
         """
@@ -83,33 +93,33 @@ class VisualizationService:
     def get_available_testcases(cls) -> List[Dict[str, str]]:
         """
         Scan testcase directories for puzzle files.
-        
+
         Returns:
             List of dicts with 'name' and 'path' keys for each testcase.
         """
         testcases = []
-        
+
         for dir_path in cls.TESTCASE_DIRS:
             full_path = cls.PROJECT_ROOT / dir_path
             if not full_path.exists():
                 continue
-                
+
             for file_path in sorted(full_path.glob("*.txt")):
                 testcases.append({
                     "name": file_path.stem,
                     "path": str(file_path),
                 })
-        
+
         return testcases
 
     @classmethod
     def load_puzzle(cls, filepath: str) -> FutoshikiData:
         """
         Load and parse a puzzle file.
-        
+
         Args:
             filepath: Path to the puzzle file.
-            
+
         Returns:
             Parsed FutoshikiData object.
         """
@@ -123,18 +133,15 @@ class VisualizationService:
     ) -> Generator[StepState, None, None]:
         """
         Run algorithm step-by-step, yielding state at each step.
-        
-        This is a generator that yields StepState objects representing
-        the algorithm's progress through the puzzle.
-        
+
         Args:
             algorithm_name: Name of the registered algorithm to use.
             puzzle_data: Parsed puzzle data.
-            
+
         Yields:
             StepState objects for each algorithm step.
         """
-        # Initial state
+        # Initial state (step 0) — always shown first
         yield StepState(
             step_number=0,
             grid=[row[:] for row in puzzle_data.grid],
@@ -147,24 +154,34 @@ class VisualizationService:
                 "backtracks": 0,
             },
         )
-        
-        # For step visualization, we use backtracking with step capture
-        # This simplified version simulates steps based on the algorithm
-        solver = SolverFactory.create(algorithm_name, puzzle_data)
-        
+
         if algorithm_name == "backtracking":
+            # Backtracking: inline step-by-step simulation
+            solver = SolverFactory.create(algorithm_name, puzzle_data)
             yield from cls._run_backtracking_steps(solver, puzzle_data)
-        else:
-            # For non-backtracking algorithms, run and show result
+
+        elif algorithm_name == "astar":
+            # A*: adapt problem, run with snapshots enabled, replay snapshots
+            adapter = AlgorithmAdapter(puzzle_data)
+            problem = adapter.to_astar()
+            solver = SolverFactory.create(algorithm_name, problem)
+            solver.record_snapshots = True
             result = solver.solve()
-            metrics = result.get("metrics", {})
+            yield from cls._replay_astar_steps(result, puzzle_data)
+
+        else:
+            # forward_chaining / backward_chaining / any future solver:
+            # Run and show a single result step (no internal snapshots yet)
+            solver = SolverFactory.create(algorithm_name, puzzle_data)
+            result = solver.solve()
+            metrics = _metrics_to_dict(result.get("metrics", {}))
             solution = result.get("solution")
-            
+
             if solution:
                 yield StepState(
                     step_number=1,
                     grid=solution,
-                    message="Algorithm completed",
+                    message="Algorithm completed — solution found",
                     metrics=metrics,
                     is_complete=True,
                     is_solved=True,
@@ -179,6 +196,141 @@ class VisualizationService:
                     is_solved=False,
                 )
 
+    # ------------------------------------------------------------------
+    # A* snapshot replay
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def _replay_astar_steps(
+        cls,
+        result: Dict[str, Any],
+        puzzle_data: FutoshikiData,
+    ) -> Generator[StepState, None, None]:
+        """
+        Convert A* snapshots stored in metrics.extra into StepState objects.
+
+        A* stores each expand/assign/prune event as:
+            metrics["extra"]["snap_N"] = {
+                "step": N,
+                "grid": List[List[int]],
+                "label": str,
+            }
+        """
+        metrics_raw = result.get("metrics", {})
+        metrics = _metrics_to_dict(metrics_raw)
+        solution = result.get("solution")
+        extra = metrics.get("extra", {})
+
+        # Collect and sort snapshots by step index
+        snaps = []
+        for key, value in extra.items():
+            if key.startswith("snap_") and isinstance(value, dict):
+                snaps.append(value)
+        snaps.sort(key=lambda s: s.get("step", 0))
+
+        if not snaps:
+            # No snapshots — fall back to single-step display
+            if solution:
+                yield StepState(
+                    step_number=1,
+                    grid=solution,
+                    message="A* completed — solution found",
+                    metrics=metrics,
+                    is_complete=True,
+                    is_solved=True,
+                )
+            else:
+                yield StepState(
+                    step_number=1,
+                    grid=[row[:] for row in puzzle_data.grid],
+                    message="A* found no solution",
+                    metrics=metrics,
+                    is_complete=True,
+                    is_solved=False,
+                )
+            return
+
+        # Running metrics counters — accumulate from final metrics
+        # We show final metrics on last step; intermediate steps show partial counts
+        total_expanded = metrics.get("nodes_expanded", 0)
+        total_generated = metrics.get("nodes_generated", 0)
+        total_checks = metrics.get("constraint_checks", 0)
+        total_assignments = metrics.get("assignments", 0)
+        total_backtracks = metrics.get("backtracks", 0)
+        n_snaps = len(snaps)
+
+        for i, snap in enumerate(snaps):
+            grid = snap.get("grid", [row[:] for row in puzzle_data.grid])
+            label: str = snap.get("label", "")
+            step_num = i + 1
+
+            # Detect what kind of step this is from the label
+            is_pruned = "PRUNED" in label
+            is_assign = label.startswith("assign")
+
+            # Determine highlighted cell from label if possible
+            # Labels look like: "assign (r,c)=v ..." or "PRUNED (r,c)=v"
+            active_cell = _parse_cell_from_label(label)
+            changed_cell = active_cell if is_assign else None
+            conflict_cells = [active_cell] if is_pruned and active_cell else []
+
+            # Partial metrics: scale linearly by progress through snaps
+            frac = (i + 1) / n_snaps
+            partial_metrics = {
+                "nodes_generated": int(total_generated * frac),
+                "nodes_expanded": int(total_expanded * frac),
+                "constraint_checks": int(total_checks * frac),
+                "assignments": int(total_assignments * frac),
+                "backtracks": int(total_backtracks * frac),
+                "elapsed_seconds": 0,
+            }
+
+            yield StepState(
+                step_number=step_num,
+                grid=grid,
+                active_cell=active_cell,
+                changed_cell=changed_cell,
+                conflict_cells=conflict_cells,
+                message=_format_astar_label(label),
+                metrics=partial_metrics,
+                is_complete=False,
+                is_solved=False,
+            )
+
+        # Final step — show solution (or failure)
+        final_step = n_snaps + 1
+        final_metrics = {
+            "nodes_generated": total_generated,
+            "nodes_expanded": total_expanded,
+            "constraint_checks": total_checks,
+            "assignments": total_assignments,
+            "backtracks": total_backtracks,
+            "elapsed_seconds": metrics.get("elapsed_seconds", 0),
+        }
+
+        if solution:
+            yield StepState(
+                step_number=final_step,
+                grid=solution,
+                message="✅ A* found the solution!",
+                metrics=final_metrics,
+                is_complete=True,
+                is_solved=True,
+            )
+        else:
+            yield StepState(
+                step_number=final_step,
+                grid=[row[:] for row in puzzle_data.grid],
+                message="❌ A* found no solution",
+                metrics=final_metrics,
+                is_complete=True,
+                is_solved=False,
+            )
+
+    # ------------------------------------------------------------------
+    # Backtracking inline step-by-step
+    # ------------------------------------------------------------------
+
     @classmethod
     def _run_backtracking_steps(
         cls,
@@ -187,20 +339,19 @@ class VisualizationService:
     ) -> Generator[StepState, None, None]:
         """
         Generate step-by-step states for backtracking algorithm.
-        
-        This captures each assignment and backtrack as a step.
+        Inline simulation — does not call solver.solve().
         """
         n = puzzle_data.size
         grid = [row[:] for row in puzzle_data.grid]
         step = 1
-        
-        # Find empty cells
-        empty_cells = []
-        for r in range(n):
-            for c in range(n):
-                if grid[r][c] == 0:
-                    empty_cells.append((r, c))
-        
+
+        empty_cells = [
+            (r, c)
+            for r in range(n)
+            for c in range(n)
+            if grid[r][c] == 0
+        ]
+
         if not empty_cells:
             yield StepState(
                 step_number=step,
@@ -210,9 +361,7 @@ class VisualizationService:
                 is_solved=True,
             )
             return
-        
-        # Simulate step-by-step solving
-        assignments = []
+
         metrics = {
             "nodes_generated": 0,
             "nodes_expanded": 0,
@@ -220,18 +369,15 @@ class VisualizationService:
             "assignments": 0,
             "backtracks": 0,
         }
-        
+
         def is_valid(row: int, col: int, val: int) -> bool:
             metrics["constraint_checks"] += 1
-            # Row check
             for c in range(n):
                 if c != col and grid[row][c] == val:
                     return False
-            # Column check  
             for r in range(n):
                 if r != row and grid[r][col] == val:
                     return False
-            # Horizontal constraints
             if col > 0:
                 constraint = puzzle_data.h_constraints[row][col - 1]
                 left = grid[row][col - 1]
@@ -248,7 +394,6 @@ class VisualizationService:
                         return False
                     if constraint == -1 and not (val > right):
                         return False
-            # Vertical constraints
             if row > 0:
                 constraint = puzzle_data.v_constraints[row - 1][col]
                 top = grid[row - 1][col]
@@ -266,89 +411,90 @@ class VisualizationService:
                     if constraint == -1 and not (val > bottom):
                         return False
             return True
-        
+
         cell_idx = 0
-        value_stack = [1]  # Current value to try at each level
-        
+        value_stack = [1]
+
         while cell_idx < len(empty_cells):
             if cell_idx < 0:
-                # No solution
                 yield StepState(
                     step_number=step,
                     grid=[row[:] for row in grid],
-                    message="No solution found - exhausted all possibilities",
+                    message="No solution found — exhausted all possibilities",
                     metrics=dict(metrics),
                     is_complete=True,
                     is_solved=False,
                 )
                 return
-            
+
             row, col = empty_cells[cell_idx]
             metrics["nodes_expanded"] += 1
-            
+
             found_valid = False
             start_val = value_stack[cell_idx] if cell_idx < len(value_stack) else 1
-            
+
             for val in range(start_val, n + 1):
                 metrics["nodes_generated"] += 1
-                
+
                 if is_valid(row, col, val):
                     grid[row][col] = val
                     metrics["assignments"] += 1
-                    
+
                     yield StepState(
                         step_number=step,
                         grid=[r[:] for r in grid],
                         active_cell=(row, col),
                         changed_cell=(row, col),
-                        message=f"Assigned {val} to cell ({row+1}, {col+1})",
+                        message=f"Assigned {val} to cell ({row + 1}, {col + 1})",
                         metrics=dict(metrics),
                     )
                     step += 1
-                    
+
                     if cell_idx < len(value_stack):
                         value_stack[cell_idx] = val + 1
                     else:
                         value_stack.append(val + 1)
-                    
+
                     cell_idx += 1
                     if cell_idx < len(value_stack):
                         value_stack[cell_idx] = 1
                     else:
                         value_stack.append(1)
-                    
+
                     found_valid = True
                     break
-            
+
             if not found_valid:
-                # Backtrack
                 grid[row][col] = 0
                 metrics["backtracks"] += 1
-                
+
                 yield StepState(
                     step_number=step,
                     grid=[r[:] for r in grid],
                     active_cell=(row, col),
                     conflict_cells=[(row, col)],
-                    message=f"Backtracking from cell ({row+1}, {col+1})",
+                    message=f"Backtracking from cell ({row + 1}, {col + 1})",
                     metrics=dict(metrics),
                 )
                 step += 1
-                
+
                 cell_idx -= 1
                 if cell_idx >= 0:
-                    r, c = empty_cells[cell_idx]
-                    grid[r][c] = 0
-        
-        # Solution found
+                    r2, c2 = empty_cells[cell_idx]
+                    grid[r2][c2] = 0
+
         yield StepState(
             step_number=step,
             grid=[r[:] for r in grid],
-            message="Puzzle solved!",
+            message="✅ Puzzle solved!",
             metrics=dict(metrics),
             is_complete=True,
             is_solved=True,
         )
+
+    # ------------------------------------------------------------------
+    # Batch comparison
+    # ------------------------------------------------------------------
 
     @classmethod
     def run_batch_comparison(
@@ -358,25 +504,24 @@ class VisualizationService:
     ) -> List[ComparisonResult]:
         """
         Run multiple algorithms on multiple testcases for comparison.
-        
+
         Args:
             algorithms: List of algorithm names to compare.
             testcases: List of testcase dicts with 'name' and 'path'.
                       If None, uses all available testcases.
-        
+
         Returns:
             List of ComparisonResult objects.
         """
         if testcases is None:
             testcases = cls.get_available_testcases()
-        
+
         results = []
-        
+
         for testcase in testcases:
             try:
                 puzzle_data = cls.load_puzzle(testcase["path"])
             except Exception as e:
-                # Skip testcases that fail to load
                 for algo in algorithms:
                     results.append(ComparisonResult(
                         algorithm=algo,
@@ -391,25 +536,21 @@ class VisualizationService:
                         error=str(e),
                     ))
                 continue
-            
+
             for algo in algorithms:
                 try:
-                    # Adapt puzzle data based on algorithm
                     adapter = AlgorithmAdapter(puzzle_data)
                     if algo == "astar":
                         problem = adapter.to_astar()
+                        solver = SolverFactory.create(algo, problem)
+                        solver.record_snapshots = False  # Save memory in batch mode
                     else:
-                        # backtracking, forward_chaining, backward_chaining use FutoshikiData
                         problem = puzzle_data
-                    
-                    solver = SolverFactory.create(algo, problem)
+                        solver = SolverFactory.create(algo, problem)
+
                     result = solver.solve()
-                    metrics = result.get("metrics", {})
-                    
-                    # Handle SolverMetrics object vs dict
-                    if hasattr(metrics, 'to_dict'):
-                        metrics = metrics.to_dict()
-                    
+                    metrics = _metrics_to_dict(result.get("metrics", {}))
+
                     results.append(ComparisonResult(
                         algorithm=algo,
                         testcase=testcase["name"],
@@ -434,8 +575,60 @@ class VisualizationService:
                         assignments=0,
                         error=str(e),
                     ))
-        
+
         return results
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _format_astar_label(label: str) -> str:
+    """
+    Convert raw A* snapshot label into a human-friendly message.
+
+    Input examples:
+        "assign (0,7)=9 g=32 h=49"       → "Assigned 9 to cell (row 1, col 8)  |  f=81  [g=32, h=49]"
+        "PRUNED (0,7)=9"                  → "Pruned value 9 at cell (row 1, col 8) — no valid domain"
+        "expand g=32 h=49 f=81"           → "Expanding node  |  f=81  [g=32, h=49]"
+    """
+    import re
+
+    # --- assign (r,c)=v g=G h=H ---
+    m = re.match(r"assign\s+\((\d+),\s*(\d+)\)=(\d+)", label)
+    if m:
+        r, c, v = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        return f"Assigned {v} to cell (row {r+1}, col {c+1})"
+
+    # --- PRUNED (r,c)=v ---
+    m = re.match(r"PRUNED\s+\((\d+),\s*(\d+)\)=(\d+)", label)
+    if m:
+        r, c, v = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        return f"Pruned value {v} at cell (row {r+1}, col {c+1}) — domain became empty"
+
+    # --- expand g=G h=H f=F ---
+    m = re.match(r"expand\s+", label)
+    if m:
+        return "Expanding node"
+
+    # fallback — return as-is but capitalised
+    return label.capitalize()
+
+
+def _parse_cell_from_label(label: str) -> Optional[Tuple[int, int]]:
+    """
+    Try to extract (row, col) from A* snapshot labels.
+
+    Label formats:
+        "assign (r,c)=v g=... h=..."
+        "PRUNED (r,c)=v"
+        "expand g=... h=... f=..."  ← no cell
+    """
+    import re
+    match = re.search(r"\((\d+),\s*(\d+)\)", label)
+    if match:
+        return int(match.group(1)), int(match.group(2))
+    return None
 
 
 __all__ = ["VisualizationService", "StepState", "ComparisonResult"]

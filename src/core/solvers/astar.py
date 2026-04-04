@@ -12,21 +12,6 @@ Algorithm (matches the report):
   Variable ordering : MRV  (Minimum Remaining Values)
   Value ordering    : LCV  (Least Constraining Value)
   Pruning           : AC-3 run before inserting each successor into OPEN
-
-Input (via AlgorithmAdapter.to_astar()):
-    {
-        "initial_grid"  : List[List[int]],   # N×N, 0 = empty
-        "h_constraints" : List[List[int]],   # N × (N-1)
-        "v_constraints" : List[List[int]],   # (N-1) × N
-        "grid_size"     : int
-    }
-
-Output of solve():
-    {
-        "status"   : "unique" | "none",
-        "solution" : List[List[int]] | None,
-        "metrics"  : SolverMetrics,
-    }
 """
 
 from __future__ import annotations
@@ -36,7 +21,7 @@ from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple
 
 from .base_solver import BaseSolver, SolverFactory
-from ..utils.metrics import SolverMetrics
+from ..utils.metrics import GLOBAL_METRICS_STORE
 from ..heuristics.ac3 import (
     Cell,
     Domain,
@@ -62,7 +47,7 @@ class _Node:
       h = unassigned cells remaining (or inf if infeasible)
     """
 
-    _counter: int = 0  # global tie-breaker so heapq never compares domains
+    _counter: int = 0
 
     __slots__ = ("domains", "g", "h", "f", "grid", "_id")
 
@@ -97,31 +82,37 @@ class AStarSolver(BaseSolver):
         self._h_con: List[List[int]] = problem["h_constraints"]
         self._v_con: List[List[int]] = problem["v_constraints"]
 
-        # Set to False when running benchmarks to avoid memory overhead
         self.record_snapshots: bool = True
 
     # ------------------------------------------------------------------
-    # Public API (matches BaseSolver contract)
+    # Public API — format đồng nhất với BacktrackingSolver
     # ------------------------------------------------------------------
 
     def solve(self) -> Dict[str, Any]:
         self.metrics.start()
 
-        solution = self._run()
+        try:
+            solution = self._run()
 
-        self.metrics.stop()
+            if solution is not None:
+                self.metrics.mark_solved(True)
+                self.metrics.set_solution_depth(self._n * self._n)
+                status = "unique"
+            else:
+                self.metrics.mark_solved(False)
+                status = "none"
 
-        if solution is not None:
-            self.metrics.mark_solved(True)
-            self.metrics.set_solution_depth(self._n * self._n)
-        else:
-            self.metrics.mark_solved(False)
+            return {
+                "status": status,
+                "solution": solution,
+                # Trả về dict giống BacktrackingSolver
+                "metrics": self.metrics.to_dict(),
+            }
 
-        return {
-            "status": "unique" if solution is not None else "none",
-            "solution": solution,
-            "metrics": self.metrics,
-        }
+        finally:
+            self.metrics.stop()
+            # Add vào GLOBAL_METRICS_STORE giống BacktrackingSolver
+            GLOBAL_METRICS_STORE.add(self.metrics)
 
     # ------------------------------------------------------------------
     # Core A* loop
@@ -129,14 +120,13 @@ class AStarSolver(BaseSolver):
 
     def _run(self) -> Optional[List[List[int]]]:
         n = self._n
-        m = self.metrics  # shorthand
+        m = self.metrics
 
-        # Build and AC-3 the initial state
         init_domains = build_initial_domains(n, self._initial_grid)
         init_domains = run_ac3(init_domains, n, self._h_con, self._v_con)
 
         if init_domains is None:
-            return None  # Initial puzzle already infeasible
+            return None
 
         h0 = compute_heuristic(init_domains)
         g0 = sum(1 for v in init_domains.values() if len(v) == 1)
@@ -148,14 +138,11 @@ class AStarSolver(BaseSolver):
             grid=domains_to_grid(init_domains, n),
         )
 
-        # OPEN: min-heap by f
         open_heap: List[_Node] = []
         heapq.heappush(open_heap, root)
         m.inc_nodes_generated()
 
-        # CLOSED: frozenset of assigned (cell, value) pairs
         closed: set = set()
-
         step = 0
 
         while open_heap:
@@ -164,17 +151,14 @@ class AStarSolver(BaseSolver):
             node = heapq.heappop(open_heap)
             m.inc_nodes_expanded()
 
-            # Goal check
             if node.is_goal():
                 return domains_to_grid(node.domains, n)
 
-            # Duplicate detection
             sig = _signature(node.domains)
             if sig in closed:
                 continue
             closed.add(sig)
 
-            # Snapshot for GUI step-by-step replay
             if self.record_snapshots:
                 m.add_extra(
                     f"snap_{step}",
@@ -186,14 +170,12 @@ class AStarSolver(BaseSolver):
                 )
             step += 1
 
-            # MRV: choose next cell
             cell = select_mrv_cell(node.domains)
             if cell is None:
-                continue  # should not reach here if goal check is correct
+                continue
 
             r, c = cell
 
-            # LCV: try values in least-constraining order
             for value in lcv_order(cell, node.domains, n, self._h_con, self._v_con):
                 m.inc_constraint_checks()
 
@@ -201,11 +183,9 @@ class AStarSolver(BaseSolver):
                 child_domains[cell] = {value}
                 m.inc_assignments()
 
-                # AC-3 on successor
                 child_domains = run_ac3(child_domains, n, self._h_con, self._v_con)
 
                 if child_domains is None:
-                    # h = inf → prune
                     if self.record_snapshots:
                         m.add_extra(
                             f"snap_{step}",
@@ -248,7 +228,7 @@ class AStarSolver(BaseSolver):
                     )
                 step += 1
 
-        return None  # OPEN exhausted
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -262,3 +242,6 @@ def _signature(domains: Domain) -> frozenset:
         for cell, vals in domains.items()
         if len(vals) == 1
     )
+
+
+__all__ = ["AStarSolver"]

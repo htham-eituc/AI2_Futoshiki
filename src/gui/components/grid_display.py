@@ -2,7 +2,7 @@
 Grid Display Component - Renders Futoshiki puzzle grid with constraints.
 """
 
-from typing import Dict, List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple
 import streamlit as st
 
 
@@ -28,7 +28,7 @@ def render_grid(
 ) -> None:
     """
     Render the Futoshiki grid with inequality constraints.
-    
+
     Args:
         grid: 2D list of cell values (0 = empty).
         size: Grid size (NxN).
@@ -41,8 +41,7 @@ def render_grid(
     """
     conflict_set = set(conflict_cells) if conflict_cells else set()
     given_set = given_cells or set()
-    
-    # Build HTML table
+
     html = _build_grid_html(
         grid=grid,
         size=size,
@@ -53,7 +52,7 @@ def render_grid(
         conflict_set=conflict_set,
         given_set=given_set,
     )
-    
+
     st.markdown(html, unsafe_allow_html=True)
 
 
@@ -68,7 +67,7 @@ def _build_grid_html(
     given_set: Set[Tuple[int, int]],
 ) -> str:
     """Build HTML for the grid display."""
-    
+
     css = """
     <style>
     .futoshiki-grid {
@@ -85,22 +84,23 @@ def _build_grid_html(
         height: 50px;
         text-align: center;
         vertical-align: middle;
-        border: 2px solid #333;
+        border: 2px solid #555;
         font-weight: bold;
+        color: #111111 !important;   /* always dark text — works on both light/dark theme */
     }
     .futoshiki-grid .h-constraint {
         width: 30px;
         text-align: center;
         vertical-align: middle;
         font-size: 20px;
-        color: #666;
+        color: #aaaaaa;
     }
     .futoshiki-grid .v-constraint {
         height: 20px;
         text-align: center;
         vertical-align: middle;
         font-size: 16px;
-        color: #666;
+        color: #aaaaaa;
     }
     .futoshiki-grid .spacer {
         width: 30px;
@@ -108,18 +108,16 @@ def _build_grid_html(
     }
     </style>
     """
-    
+
     rows_html = []
-    
+
     for row in range(size):
-        # Row with cells and horizontal constraints
         cells_html = []
         for col in range(size):
-            # Cell
             value = grid[row][col]
             display_value = str(value) if value != 0 else ""
-            
-            # Determine background color
+
+            # Determine background color (priority: changed > active > conflict > given > default)
             bg_color = COLORS["default"]
             if (row, col) == changed_cell:
                 bg_color = COLORS["changed"]
@@ -129,26 +127,27 @@ def _build_grid_html(
                 bg_color = COLORS["conflict"]
             elif (row, col) in given_set:
                 bg_color = COLORS["given"]
-            
+
             cells_html.append(
-                f'<td class="cell" style="background-color: {bg_color};">{display_value}</td>'
+                f'<td class="cell" style="background-color: {bg_color};">'
+                f'{display_value}</td>'
             )
-            
-            # Horizontal constraint (except after last column)
+
+            # Horizontal constraint symbol
             if col < size - 1:
                 h_symbol = ""
                 if h_constraints and len(h_constraints) > row and len(h_constraints[row]) > col:
                     constraint = h_constraints[row][col]
                     if constraint == 1:
-                        h_symbol = "&lt;"  # <
+                        h_symbol = "&lt;"
                     elif constraint == -1:
-                        h_symbol = "&gt;"  # >
-                
+                        h_symbol = "&gt;"
+
                 cells_html.append(f'<td class="h-constraint">{h_symbol}</td>')
-        
+
         rows_html.append(f'<tr>{"".join(cells_html)}</tr>')
-        
-        # Row with vertical constraints (except after last row)
+
+        # Vertical constraint row
         if row < size - 1:
             v_cells_html = []
             for col in range(size):
@@ -156,31 +155,23 @@ def _build_grid_html(
                 if v_constraints and len(v_constraints) > row and len(v_constraints[row]) > col:
                     constraint = v_constraints[row][col]
                     if constraint == 1:
-                        v_symbol = "∧"  # top < bottom (shows ^ pointing up)
+                        v_symbol = "∧"
                     elif constraint == -1:
-                        v_symbol = "∨"  # top > bottom (shows v pointing down)
-                
+                        v_symbol = "∨"
+
                 v_cells_html.append(f'<td class="v-constraint">{v_symbol}</td>')
-                
-                # Spacer for horizontal constraint column
+
                 if col < size - 1:
                     v_cells_html.append('<td class="spacer"></td>')
-            
+
             rows_html.append(f'<tr>{"".join(v_cells_html)}</tr>')
-    
+
     table_html = f'<table>{"".join(rows_html)}</table>'
-    
     return f'{css}<div class="futoshiki-grid">{table_html}</div>'
 
 
 def render_grid_simple(grid: List[List[int]], size: int) -> None:
-    """
-    Render a simple grid without constraints (for quick display).
-    
-    Args:
-        grid: 2D list of cell values.
-        size: Grid size.
-    """
+    """Render a simple grid without constraints (for quick display)."""
     render_grid(grid=grid, size=size)
 
 
