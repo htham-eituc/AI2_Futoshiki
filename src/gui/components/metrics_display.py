@@ -61,11 +61,18 @@ def render_metrics(
     
     with col6:
         elapsed = metrics.get("elapsed_seconds", 0)
-        if elapsed > 0:
-            st.metric(
-                "Elapsed Time",
-                f"{elapsed:.4f}s",
-            )
+        if elapsed >= 1:
+            display_time = f"{elapsed:.3f}s"
+        elif elapsed >= 0.001:
+            display_time = f"{elapsed * 1000:.2f}ms"
+        elif elapsed >= 0.000001:
+            display_time = f"{elapsed * 1_000_000:.2f}µs"
+        elif elapsed > 0:
+            display_time = f"{elapsed * 1_000_000:.4f}µs"
+        else:
+            display_time = "—"
+        
+    st.metric("Elapsed Time", display_time)
 
 
 def render_final_status(

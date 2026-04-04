@@ -90,7 +90,6 @@ class AStarSolver(BaseSolver):
 
     def solve(self) -> Dict[str, Any]:
         self.metrics.start()
-
         try:
             solution = self._run()
 
@@ -102,17 +101,15 @@ class AStarSolver(BaseSolver):
                 self.metrics.mark_solved(False)
                 status = "none"
 
-            return {
-                "status": status,
-                "solution": solution,
-                # Trả về dict giống BacktrackingSolver
-                "metrics": self.metrics.to_dict(),
-            }
-
         finally:
-            self.metrics.stop()
-            # Add vào GLOBAL_METRICS_STORE giống BacktrackingSolver
+            self.metrics.stop()                    # stop() TRƯỚC
             GLOBAL_METRICS_STORE.add(self.metrics)
+
+        return {                                    # return SAU finally
+            "status": status,
+            "solution": solution,
+            "metrics": self.metrics.to_dict(),     # lúc này elapsed đã có
+        }
 
     # ------------------------------------------------------------------
     # Core A* loop
