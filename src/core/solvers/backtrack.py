@@ -35,12 +35,6 @@ class BacktrackingSolver(BaseSolver):
         self.solutions: List[List[List[int]]] = []
 
     def _find_next_empty_cell(self) -> Optional[Tuple[int, int]]:
-        """
-        Find the next empty cell using sequential scan.
-
-        Returns:
-            Tuple (row, col) of the first empty cell, or None if grid is full.
-        """
         for row in range(self.n):
             for col in range(self.n):
                 if self.grid[row][col] == 0:
@@ -55,18 +49,6 @@ class BacktrackingSolver(BaseSolver):
         *,
         count_checks: bool = True,
     ) -> bool:
-        """
-        Check whether assigning `value` to (row, col) is valid.
-
-        Validates:
-        - Row uniqueness
-        - Column uniqueness
-        - Horizontal inequality constraints
-        - Vertical inequality constraints
-
-        Args:
-            count_checks: Whether to increment constraint_checks metrics.
-        """
         # Row uniqueness
         for c in range(self.n):
             if c == col:
@@ -136,15 +118,6 @@ class BacktrackingSolver(BaseSolver):
         return True
 
     def _backtrack(self, limit: int = 2) -> bool:
-        """
-        Basic backtracking with sequential selection and natural ordering.
-
-        Args:
-            limit: Maximum number of solutions to find (default 2 for uniqueness).
-
-        Returns:
-            True if should stop early (limit reached), False otherwise.
-        """
         if len(self.solutions) >= limit:
             return True
 
@@ -184,8 +157,11 @@ class BacktrackingSolver(BaseSolver):
                 - metrics: solver metrics dict
         """
         self.metrics.start()
+        status = "none"
+        solution = None
 
         try:
+            # Validate pre-filled cells
             for row in range(self.n):
                 for col in range(self.n):
                     value = self.grid[row][col]
@@ -193,20 +169,16 @@ class BacktrackingSolver(BaseSolver):
                         continue
                     if value < 1 or value > self.n:
                         self.metrics.mark_solved(False)
-                        return {
-                            "status": "none",
-                            "solution": None,
-                            "metrics": self.metrics.to_dict(),
-                        }
+                        status = "none"
+                        solution = None
+                        return  # jump to finally
                     self.grid[row][col] = 0
                     if not self._is_valid_assignment(row, col, value, count_checks=False):
                         self.grid[row][col] = value
                         self.metrics.mark_solved(False)
-                        return {
-                            "status": "none",
-                            "solution": None,
-                            "metrics": self.metrics.to_dict(),
-                        }
+                        status = "none"
+                        solution = None
+                        return  # jump to finally
                     self.grid[row][col] = value
 
             self._backtrack(limit=2)
@@ -225,14 +197,16 @@ class BacktrackingSolver(BaseSolver):
                 solution = self.solutions[0]
                 self.metrics.mark_solved(True)
 
-            return {
-                "status": status,
-                "solution": solution,
-                "metrics": self.metrics.to_dict(),
-            }
         finally:
+            # stop() ALWAYS runs before to_dict() so elapsed_seconds is correct
             self.metrics.stop()
             GLOBAL_METRICS_STORE.add(self.metrics)
+
+        return {
+            "status": status,
+            "solution": solution,
+            "metrics": self.metrics.to_dict(),
+        }
 
 
 __all__ = ["BacktrackingSolver"]
