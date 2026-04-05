@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 """
 SLD Resolution Backward Chaining Solver for Futoshiki Puzzles
 (docstring unchanged)
@@ -515,4 +513,3 @@ class BackwardChainingSolver(BaseSolver):
 
 
 __all__ = ["SLDInterpreter", "BackwardChainingSolver"]
->>>>>>> Stashed changes
