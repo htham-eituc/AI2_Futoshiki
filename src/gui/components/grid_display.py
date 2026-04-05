@@ -8,11 +8,11 @@ import streamlit as st
 
 # Color constants for highlighting - soft, human-friendly palette
 COLORS = {
-    "active": "#fef3c7",      # Soft amber - currently processing
-    "changed": "#d1fae5",     # Soft mint - just assigned
-    "conflict": "#fecaca",    # Soft rose - constraint violation
-    "default": "#ffffff",     # White - normal cell
-    "given": "#f0f9ff",       # Soft sky - initial given values
+    "active": "var(--grid-active)",      # Currently processing
+    "changed": "var(--grid-changed)",    # Just assigned
+    "conflict": "var(--grid-conflict)",  # Constraint violation
+    "default": "var(--grid-default)",    # Normal cell
+    "given": "var(--grid-given)",        # Initial given values
 }
 
 
@@ -72,39 +72,55 @@ def _build_grid_html(
     <style>
     .futoshiki-grid {
         display: inline-block;
-        font-family: 'Courier New', monospace;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 24px;
-        margin: 20px auto;
+        margin: 24px auto;
+        padding: 20px;
+        background: var(--bg-surface);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
     .futoshiki-grid table {
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 2px;
     }
     .futoshiki-grid .cell {
-        width: 50px;
-        height: 50px;
+        width: 54px;
+        height: 54px;
         text-align: center;
         vertical-align: middle;
-        border: 1px solid #d4d4d4;
-        font-weight: 500;
-        color: #2d3748 !important;
+        border: 2px solid var(--grid-border);
+        font-weight: 600;
+        color: var(--text-primary) !important;
+        border-radius: var(--radius-sm);
+        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+    .futoshiki-grid .cell:hover {
+        transform: scale(1.05);
+        z-index: 1;
     }
     .futoshiki-grid .h-constraint {
-        width: 30px;
+        width: 26px;
         text-align: center;
         vertical-align: middle;
         font-size: 20px;
-        color: #a0aec0;
+        font-weight: 600;
+        color: var(--accent-primary);
+        opacity: 0.9;
     }
     .futoshiki-grid .v-constraint {
-        height: 20px;
+        height: 24px;
         text-align: center;
         vertical-align: middle;
         font-size: 16px;
-        color: #a0aec0;
+        font-weight: 600;
+        color: var(--accent-primary);
+        opacity: 0.9;
     }
     .futoshiki-grid .spacer {
-        width: 30px;
-        height: 20px;
+        width: 26px;
+        height: 24px;
     }
     </style>
     """

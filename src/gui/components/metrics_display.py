@@ -102,14 +102,17 @@ def render_algorithm_badge(algorithm_name: str) -> None:
     st.markdown(
         f"""
         <div style="
-            display: inline-block;
-            background: #4a5568;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 4px;
-            font-weight: 500;
-            font-size: 14px;
-            margin: 10px 0;
+            display: inline-flex;
+            align-items: center;
+            background: var(--accent-primary);
+            color: var(--text-inverse);
+            padding: 8px 18px;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.04em;
+            margin: 12px 0;
+            box-shadow: var(--shadow-sm);
         ">
             {algorithm_name.upper()}
         </div>

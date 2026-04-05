@@ -64,7 +64,7 @@ def render_step_visualization() -> None:
     
     # Breadcrumb
     st.markdown(
-        '<p style="color: #999; font-size: 14px;">Home > Step-by-Step Visualization</p>',
+        '<p style="color: var(--text-muted); font-size: 14px;">Home > Step-by-Step Visualization</p>',
         unsafe_allow_html=True,
     )
     
@@ -165,19 +165,14 @@ def render_step_visualization() -> None:
     # Right column - Visualization
     with right_col:
         if not st.session_state["viz_steps"]:
-            # Show placeholder
+            # Show placeholder with friendly empty state
             st.markdown(
                 """
-                <div style="
-                    text-align: center;
-                    padding: 100px 20px;
-                    background: #fafafa;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 8px;
-                    color: #718096;
-                ">
-                    <h3 style="color: #4a5568; font-weight: 500;">Select an algorithm and test case to begin</h3>
-                    <p>The puzzle visualization will appear here</p>
+                <div class="empty-state">
+                    <h3>Ready to Visualize</h3>
+                    <p style="margin: 0; font-size: 15px;">
+                        Select an algorithm and test case from the left panel, then click "Start Visualization"
+                    </p>
                 </div>
                 """,
                 unsafe_allow_html=True,

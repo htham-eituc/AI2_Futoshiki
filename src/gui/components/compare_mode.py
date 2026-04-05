@@ -68,7 +68,7 @@ def render_compare_mode() -> None:
     
     # Breadcrumb
     st.markdown(
-        '<p style="color: #999; font-size: 14px;">Home > Compare Algorithms</p>',
+        '<p style="color: var(--text-muted); font-size: 14px;">Home > Compare Algorithms</p>',
         unsafe_allow_html=True,
     )
     
@@ -166,7 +166,7 @@ def render_compare_mode() -> None:
     # Results section
     if st.session_state["compare_results"]:
         st.markdown("---")
-        st.markdown("## 📈 Results")
+        st.markdown("## Results")
         
         df = _results_to_dataframe(st.session_state["compare_results"])
         
