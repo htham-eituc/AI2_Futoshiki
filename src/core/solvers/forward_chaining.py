@@ -19,7 +19,7 @@ which gives a complete DPLL-style procedure while still being fact-driven.
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
 from .base_solver import BaseSolver, SolverFactory
 from ..utils.metrics import GLOBAL_METRICS_STORE
@@ -31,78 +31,63 @@ from ..problem.parser import futoshiki_to_puzzle_dict
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Forward Chaining Engine  (pure reasoning logic, no solver interface)
+# Forward Chaining Engine
 # ─────────────────────────────────────────────────────────────────────────────
 
 class ForwardChainer:
     """
     FOL Forward Chaining over a grounded CNF knowledge base.
 
-    Algorithm
-    ---------
-    The grounded KB for Futoshiki is already in CNF, so "FOL forward
-    chaining" reduces to iterated unit propagation (the standard FOL-FC
-    completeness result for Horn-like fragments) extended with a splitting
-    rule to handle non-Horn clauses.
-
-    Each call to _fc() executes:
-
-        1. SIMPLIFY  – run unit propagation inside the KB
-        2. CHECK     – return UNSAT if empty clause or complementary facts found
-        3. EXTRACT   – derive Val(i,j,v) facts from singleton domains
-        4. INJECT    – push new facts as unit clauses; goto 1 if any new facts
-        5. SPLIT     – pick the atom with the smallest remaining domain (MRV)
-                       and recurse on each candidate value (LCV-ordered).
-                       The first satisfying branch wins.
-
-    Metrics are written directly to the SolverMetrics object supplied by
-    the enclosing BaseSolver so they are compatible with BacktrackingSolver.
+    _fc() is a plain recursive function. During solve_steps(), snapshots
+    are collected as a side effect via self.snapshots. solve() runs _fc()
+    with no snapshot overhead.
     """
 
     def __init__(self, metrics: Any, N: int) -> None:
-        self.N       = N
-        self.metrics = metrics   # SolverMetrics passed in from BaseSolver
+        self.N         = N
+        self.metrics   = metrics
+        self.snapshots: List[Tuple[str, List[List[int]]]] = []
 
     # ── public entry point ────────────────────────────────────────────────
 
-    def run(self, kb: KnowledgeBase) -> Optional[List[List[int]]]:
+    def run(self, kb: KnowledgeBase, record: bool = False) -> Optional[List[List[int]]]:
         """
-        Entry point.
-        Returns the solved grid as a 0-indexed List[List[int]], or None (UNSAT).
+        Solve and return the grid, or None on failure.
+        If record=True, populate self.snapshots for step replay.
         """
-        result = self._fc(kb)
+        if record:
+            self.snapshots.clear()
+        result = self._fc(kb, record=record)
         if result is None:
             return None
         return self._extract_grid(result)
 
-    # ── core recursive procedure ──────────────────────────────────────────
+    # ── core recursive function ───────────────────────────────────────────
 
-    def _fc(self, kb: KnowledgeBase) -> Optional[KnowledgeBase]:
-        """
-        Forward-chain on `kb` until solved, contradiction, or stuck.
-        Returns a solved KB, or None on contradiction / exhaustion.
-        """
+    def _fc(self, kb: KnowledgeBase, record: bool = False) -> Optional[KnowledgeBase]:
         self.metrics.inc_nodes_expanded()
 
-        # ── Phase 1: unit propagation to fixed point ──────────────────────
+        # ── Phase 1: unit propagation ─────────────────────────────────────
         kb = self._propagate(kb)
         if kb is None:
             return None
 
+        if record:
+            self.snapshots.append(("propagate", self._kb_to_grid(kb)))
+
         if kb.is_solved():
+            if record:
+                self.snapshots.append(("solved", self._kb_to_grid(kb)))
             return kb
 
-        # ── Phase 2: singleton-domain forward chaining ────────────────────
-        # If only one value remains possible for a cell, assert it as a fact.
-        # This is the core "forward chaining" step: a new ground fact is
-        # derived from the current KB state and immediately fed back in.
+        # ── Phase 2: singleton domain injection ───────────────────────────
         domains  = self._compute_domains(kb)
         injected = False
 
         for (i, j), possible in domains.items():
             self.metrics.inc_constraint_checks()
             if len(possible) == 0:
-                return None                      # domain wipe-out
+                return None
             if len(possible) == 1:
                 v   = next(iter(possible))
                 lit = pos(Val(i, j, v))
@@ -110,16 +95,19 @@ class ForwardChainer:
                     kb.clauses.append(frozenset({lit}))
                     injected = True
                     self.metrics.inc_assignments()
+                    if record:
+                        self.snapshots.append((f"inject:{i},{j}={v}", self._kb_to_grid(kb)))
 
         if injected:
-            return self._fc(kb)                  # re-enter with new facts
+            return self._fc(kb, record=record)
 
-        # ── Phase 3: stuck — splitting rule on MRV cell ───────────────────
+        # ── Phase 3: splitting rule on MRV cell ───────────────────────────
         split = self._mrv_cell(domains)
         if split is None:
-            # All cells have singleton domains — one final propagation pass
-            # clears any remaining non-Val clauses that are now satisfied.
-            return self._propagate(kb)
+            final = self._propagate(kb)
+            if final is not None and record:
+                self.snapshots.append(("solved", self._kb_to_grid(final)))
+            return final
 
         (i, j), possible = split
         self.metrics.inc_nodes_generated()
@@ -130,35 +118,28 @@ class ForwardChainer:
             kb_branch.clauses.append(frozenset({pos(Val(i, j, v))}))
             self.metrics.inc_assignments()
 
-            result = self._fc(kb_branch)
+            if record:
+                self.snapshots.append((f"split:{i},{j}={v}", self._kb_to_grid(kb_branch)))
+
+            result = self._fc(kb_branch, record=record)
             if result is not None:
                 return result
 
             self.metrics.inc_backtracks()
+            if record:
+                self.snapshots.append((f"backtrack:{i},{j}", self._kb_to_grid(kb)))
 
-        return None   # all branches exhausted
+        return None
 
     # ── propagation ───────────────────────────────────────────────────────
 
     def _propagate(self, kb: KnowledgeBase) -> Optional[KnowledgeBase]:
-        """
-        Run kb.simplify() (unit propagation) to a fixed point, then check
-        for two kinds of contradiction:
-          1. Empty clause        — standard DPLL / unit-propagation signal
-          2. Complementary facts — both L and ¬L asserted in kb.facts
-        Returns the simplified kb on success, None on contradiction.
-        """
         kb.simplify()
-
         if kb.has_empty_clause():
             return None
-
-        # Complementary-fact check: if L is a known fact but ¬L is also
-        # a known fact, the branch is contradictory.
         for lit in kb.facts:
             if kb.is_false(lit):
                 return None
-
         return kb
 
     # ── domain inference ──────────────────────────────────────────────────
@@ -166,22 +147,14 @@ class ForwardChainer:
     def _compute_domains(
         self, kb: KnowledgeBase
     ) -> Dict[Tuple[int, int], Set[int]]:
-        """
-        For every cell (i,j), compute the set of values still possible
-        under the current KB facts.
-
-        v is impossible for (i,j)  ↔  ¬Val(i,j,v) is a known fact
-        v is fixed   for (i,j)     ↔   Val(i,j,v)  is a known fact
-        """
         cells   = range(1, self.N + 1)
         vals    = range(1, self.N + 1)
-        domains : Dict[Tuple[int, int], Set[int]] = {}
+        domains: Dict[Tuple[int, int], Set[int]] = {}
 
         for i in cells:
             for j in cells:
                 possible: Set[int] = set()
                 fixed: Optional[int] = None
-
                 for v in vals:
                     lit = pos(Val(i, j, v))
                     if kb.is_true(lit):
@@ -189,7 +162,6 @@ class ForwardChainer:
                         break
                     if not kb.is_false(lit):
                         possible.add(v)
-
                 domains[(i, j)] = {fixed} if fixed is not None else possible
 
         return domains
@@ -199,20 +171,13 @@ class ForwardChainer:
     def _mrv_cell(
         self, domains: Dict[Tuple[int, int], Set[int]]
     ) -> Optional[Tuple[Tuple[int, int], Set[int]]]:
-        """
-        Minimum Remaining Values heuristic.
-        Returns the unassigned cell with the fewest candidates (size > 1),
-        or None if every cell is already decided (singleton domain).
-        """
         best      : Optional[Tuple[Tuple[int, int], Set[int]]] = None
         best_size : int = self.N + 1
-
         for (i, j), possible in domains.items():
             size = len(possible)
             if 1 < size < best_size:
                 best      = ((i, j), possible)
                 best_size = size
-
         return best
 
     def _lcv_order(
@@ -222,11 +187,6 @@ class ForwardChainer:
         possible: Set[int],
         domains: Dict[Tuple[int, int], Set[int]],
     ) -> List[int]:
-        """
-        Least Constraining Value heuristic.
-        Orders candidates so that the value eliminating the fewest options
-        from row/column peers is tried first.
-        """
         cells = range(1, self.N + 1)
 
         def conflict_count(v: int) -> int:
@@ -241,17 +201,23 @@ class ForwardChainer:
 
         return sorted(possible, key=conflict_count)
 
-    # ── solution extraction ───────────────────────────────────────────────
+    # ── helpers ───────────────────────────────────────────────────────────
+
+    def _kb_to_grid(self, kb: KnowledgeBase) -> List[List[int]]:
+        """Extract current partial grid (0 = unassigned) from KB facts."""
+        grid = [[0] * self.N for _ in range(self.N)]
+        for i in range(1, self.N + 1):
+            for j in range(1, self.N + 1):
+                for v in range(1, self.N + 1):
+                    if kb.is_true(pos(Val(i, j, v))):
+                        grid[i - 1][j - 1] = v
+                        break
+        return grid
 
     def _extract_grid(self, kb: KnowledgeBase) -> Optional[List[List[int]]]:
-        """
-        Build a 0-indexed 2-D integer grid from Val facts in a solved KB.
-        Returns None if any cell is still unassigned.
-        """
         cells = range(1, self.N + 1)
         vals  = range(1, self.N + 1)
-        buf   = [[0] * (self.N + 1) for _ in range(self.N + 1)]  # 1-indexed scratch
-
+        buf   = [[0] * (self.N + 1) for _ in range(self.N + 1)]
         for i in cells:
             for j in cells:
                 for v in vals:
@@ -259,9 +225,7 @@ class ForwardChainer:
                         buf[i][j] = v
                         break
                 if buf[i][j] == 0:
-                    return None   # incomplete — shouldn't happen after _fc
-
-        # Convert to 0-indexed to match BacktrackingSolver output
+                    return None
         return [[buf[i][j] for j in cells] for i in cells]
 
 
@@ -271,40 +235,14 @@ class ForwardChainer:
 
 @SolverFactory.register("forward_chaining")
 class ForwardChainingSolver(BaseSolver):
-    """
-    FOL Forward Chaining solver for Futoshiki puzzles.
-
-    Registered as "forward_chaining" in SolverFactory, so it is created
-    and used the same way as BacktrackingSolver:
-
-        solver = SolverFactory.create("forward_chaining", problem)
-        result = solver.solve()
-
-    The problem object must expose the same interface as accepted by
-    BacktrackingSolver (size, grid, h_constraints, v_constraints).
-
-    solve() return value mirrors BacktrackingSolver exactly:
-        {
-            "status":   "unique" | "multiple" | "none",
-            "solution": List[List[int]] | None,   # 0-indexed
-            "metrics":  dict,
-        }
-    """
 
     def __init__(self, problem: Any, *, name: Optional[str] = None) -> None:
         super().__init__(problem, name=name or "ForwardChaining")
-
-        self.n       = problem.size
-        self._puzzle = futoshiki_to_puzzle_dict(problem)
-
-    # ── helpers ───────────────────────────────────────────────────────────
+        self.n        = problem.size
+        self._puzzle  = futoshiki_to_puzzle_dict(problem)
+        self._problem = problem
 
     def _denial_clause(self, solution: List[List[int]]) -> frozenset:
-        """
-        Returns a clause that forbids `solution` from being found again.
-        The clause asserts: at least one cell must differ from this solution.
-            ∨_{i,j}  ¬Val(i, j, solution[i-1][j-1])
-        """
         cells = range(1, self.n + 1)
         return frozenset(
             neg(Val(i, j, solution[i - 1][j - 1]))
@@ -312,53 +250,146 @@ class ForwardChainingSolver(BaseSolver):
             for j in cells
         )
 
-    # ── BaseSolver.solve() ────────────────────────────────────────────────
+    # ── step-by-step visualization ────────────────────────────────────────
 
-    def solve(self) -> Dict[str, Any]:
+    def solve_steps(self, puzzle_data: Any) -> Generator[Any, None, None]:
         """
-        Solve the Futoshiki puzzle using FOL Forward Chaining.
+        Run the solver with snapshot recording enabled, then replay
+        snapshots as StepState objects for the visualizer.
 
-        Returns:
-            Dict with keys:
-                - status:   "unique" | "multiple" | "none"
-                - solution: solved grid (0-indexed List[List[int]]) or None
-                - metrics:  solver metrics dict
+        Snapshot event types
+        --------------------
+        propagate        — unit propagation pass completed
+        inject:i,j=v     — singleton domain forced cell (i,j) to value v
+        split:i,j=v      — branching: trying value v at cell (i,j)
+        backtrack:i,j    — branch failed, reverting cell (i,j)
+        solved           — complete solution reached (skipped in replay,
+                           handled by the explicit final StepState)
         """
+        from gui.service.visualization_service import StepState
+
         self.metrics.start()
 
+        def current_metrics() -> Dict[str, Any]:
+            return {
+                "nodes_generated"  : self.metrics.nodes_generated,
+                "nodes_expanded"   : self.metrics.nodes_expanded,
+                "constraint_checks": self.metrics.constraint_checks,
+                "assignments"      : self.metrics.assignments,
+                "backtracks"       : self.metrics.backtracks,
+            }
+
+        try:
+            base_clauses = ground_kb(self.n, self._puzzle)
+            chainer      = ForwardChainer(self.metrics, self.n)
+            kb           = KnowledgeBase(list(base_clauses), self.n)
+
+            # Run with recording — snapshots collected as side effect
+            solution = chainer.run(kb, record=True)
+
+            step_num = 1
+            for event, grid in chainer.snapshots:
+                etype, _, detail = event.partition(":")
+
+                # Skip internal solved marker — final StepState handles it
+                if etype == "solved":
+                    continue
+
+                active_cell    = None
+                changed_cell   = None
+                conflict_cells = []
+
+                if detail:
+                    cell_part = detail.split("=")[0]
+                    parts     = cell_part.split(",")
+                    if len(parts) == 2:
+                        try:
+                            active_cell = (int(parts[0]) - 1, int(parts[1]) - 1)
+                        except ValueError:
+                            pass
+
+                    v_str = detail.split("=")[1] if "=" in detail else None
+
+                    if etype == "inject" and active_cell:
+                        changed_cell = active_cell
+                        message = (
+                            f"Singleton domain: cell "
+                            f"({active_cell[0]+1},{active_cell[1]+1}) = {v_str} "
+                            f"— only candidate remaining"
+                        )
+                    elif etype == "split" and active_cell:
+                        changed_cell = active_cell
+                        message = (
+                            f"Splitting: try value {v_str} "
+                            f"at ({active_cell[0]+1},{active_cell[1]+1})"
+                        )
+                    elif etype == "backtrack" and active_cell:
+                        conflict_cells = [active_cell]
+                        message = (
+                            f"Contradiction — backtrack "
+                            f"from ({active_cell[0]+1},{active_cell[1]+1})"
+                        )
+                    else:
+                        message = detail
+                else:
+                    message = "Unit propagation pass"
+
+                yield StepState(
+                    step_number    = step_num,
+                    grid           = grid,
+                    active_cell    = active_cell,
+                    changed_cell   = changed_cell,
+                    conflict_cells = conflict_cells,
+                    message        = message,
+                    metrics        = current_metrics(),
+                    is_complete    = False,
+                    is_solved      = False,
+                )
+                step_num += 1
+
+            # Final step
+            final_grid = solution if solution else [row[:] for row in puzzle_data.grid]
+            yield StepState(
+                step_number    = step_num,
+                grid           = final_grid,
+                message        = "✅ Puzzle solved!" if solution else "❌ No solution found",
+                metrics        = current_metrics(),
+                is_complete    = True,
+                is_solved      = solution is not None,
+            )
+
+        finally:
+            self.metrics.stop()
+            GLOBAL_METRICS_STORE.add(self.metrics)
+
+    # ── solve() — unchanged from original ────────────────────────────────
+
+    def solve(self) -> Dict[str, Any]:
+        self.metrics.start()
         try:
             base_clauses = ground_kb(self.n, self._puzzle)
             chainer      = ForwardChainer(self.metrics, self.n)
             solutions    : List[List[List[int]]] = []
 
-            # ── find up to 2 solutions (uniqueness check) ─────────────────
             for attempt in range(2):
                 clauses = list(base_clauses)
                 if attempt == 1 and solutions:
                     clauses.append(self._denial_clause(solutions[0]))
-
                 kb  = KnowledgeBase(clauses, self.n)
-                sol = chainer.run(kb)
-
+                sol = chainer.run(kb, record=False)
                 if sol is None:
                     break
                 solutions.append(sol)
 
-            # ── determine status ──────────────────────────────────────────
             if len(solutions) == 0:
-                status   = "none"
-                solution = None
+                status, solution = "none", None
                 self.metrics.mark_solved(False)
-
             elif len(solutions) == 1:
-                status   = "unique"
-                solution = solutions[0]
+                status, solution = "unique", solutions[0]
                 self.metrics.mark_solved(True)
                 self.metrics.set_solution_depth(self.n * self.n)
-
             else:
-                status   = "multiple"
-                solution = solutions[0]
+                status, solution = "multiple", solutions[0]
                 self.metrics.mark_solved(True)
 
             return {
@@ -366,7 +397,6 @@ class ForwardChainingSolver(BaseSolver):
                 "solution": solution,
                 "metrics" : self.metrics.to_dict(),
             }
-
         finally:
             self.metrics.stop()
             GLOBAL_METRICS_STORE.add(self.metrics)

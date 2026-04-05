@@ -168,7 +168,14 @@ class VisualizationService:
             solver.record_snapshots = True
             result = solver.solve()
             yield from cls._replay_astar_steps(result, puzzle_data)
+            
+        elif algorithm_name == "forward_chaining":
+            solver = SolverFactory.create(algorithm_name, puzzle_data)
+            yield from solver.solve_steps(puzzle_data)
 
+        elif algorithm_name == "backward_chaining":
+            solver = SolverFactory.create(algorithm_name, puzzle_data)
+            yield from solver.solve_steps(puzzle_data)
         else:
             # forward_chaining / backward_chaining / any future solver:
             # Run and show a single result step (no internal snapshots yet)
