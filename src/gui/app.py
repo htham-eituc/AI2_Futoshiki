@@ -39,7 +39,7 @@ def render_error_boundary(func):
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
             st.markdown("---")
-            if st.button("🏠 Return to Home"):
+            if st.button("Return to Home"):
                 st.session_state["screen"] = "home"
                 st.rerun()
             
@@ -54,12 +54,12 @@ def main():
     # Page configuration
     st.set_page_config(
         page_title="Futoshiki Algorithm Visualizer",
-        page_icon="🧩",
+        page_icon=None,
         layout="wide",
         initial_sidebar_state="collapsed",
     )
     
-    # Custom CSS
+    # Custom CSS - Human-style theme
     st.markdown(
         """
         <style>
@@ -67,19 +67,90 @@ def main():
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         
+        /* ===== Human-Style Theme ===== */
+        
+        /* Soft color palette */
+        :root {
+            --bg-primary: #fafafa;
+            --bg-surface: #ffffff;
+            --text-primary: #2d3748;
+            --text-secondary: #718096;
+            --accent-primary: #4a5568;
+            --accent-secondary: #718096;
+            --success: #48bb78;
+            --error: #f56565;
+            --border-soft: #e2e8f0;
+            --shadow-soft: rgba(0, 0, 0, 0.05);
+        }
+        
+        /* Typography hierarchy */
+        .primary-header {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+        
+        .secondary-header {
+            font-size: 20px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        .body-text {
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        
         /* Custom button styles */
         .stButton > button {
-            border-radius: 8px;
+            border-radius: 6px;
             font-weight: 500;
+            border: 1px solid var(--border-soft);
+            transition: all 0.2s ease;
+        }
+        
+        .stButton > button:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 2px 4px var(--shadow-soft);
         }
         
         /* Metric styling */
         [data-testid="stMetricValue"] {
             font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        [data-testid="stMetricLabel"] {
+            font-size: 14px;
+            color: var(--text-secondary);
         }
         
         /* Table styling */
         .dataframe {
+            font-size: 14px;
+        }
+        
+        /* Card-like containers */
+        .soft-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-soft);
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 3px var(--shadow-soft);
+        }
+        
+        /* Subtle badges */
+        .subtle-badge {
+            display: inline-block;
+            background: var(--accent-primary);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 4px;
+            font-weight: 500;
             font-size: 14px;
         }
         </style>

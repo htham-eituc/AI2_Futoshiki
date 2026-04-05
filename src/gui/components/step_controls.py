@@ -48,31 +48,31 @@ def render_step_controls(
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
-        if st.button("⏮️ Reset", disabled=current_step == 0, use_container_width=True):
+        if st.button("Reset", disabled=current_step == 0, use_container_width=True):
             result["action"] = "reset"
             if on_reset:
                 on_reset()
     
     with col2:
-        if st.button("⏪ Previous", disabled=not can_go_previous, use_container_width=True):
+        if st.button("Previous", disabled=not can_go_previous, use_container_width=True):
             result["action"] = "previous"
             if on_previous:
                 on_previous()
     
     with col3:
         if is_playing:
-            if st.button("⏸️ Pause", use_container_width=True):
+            if st.button("Pause", use_container_width=True):
                 result["action"] = "pause"
                 if on_pause:
                     on_pause()
         else:
-            if st.button("▶️ Play", disabled=not can_go_next, use_container_width=True):
+            if st.button("Play", disabled=not can_go_next, use_container_width=True):
                 result["action"] = "play"
                 if on_play:
                     on_play()
     
     with col4:
-        if st.button("⏩ Next", disabled=not can_go_next, use_container_width=True):
+        if st.button("Next", disabled=not can_go_next, use_container_width=True):
             result["action"] = "next"
             if on_next:
                 on_next()

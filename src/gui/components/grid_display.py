@@ -6,13 +6,13 @@ from typing import List, Optional, Set, Tuple
 import streamlit as st
 
 
-# Color constants for highlighting
+# Color constants for highlighting - soft, human-friendly palette
 COLORS = {
-    "active": "#ffeb3b",      # Yellow - currently processing
-    "changed": "#4caf50",     # Green - just assigned
-    "conflict": "#f44336",    # Red - constraint violation
+    "active": "#fef3c7",      # Soft amber - currently processing
+    "changed": "#d1fae5",     # Soft mint - just assigned
+    "conflict": "#fecaca",    # Soft rose - constraint violation
     "default": "#ffffff",     # White - normal cell
-    "given": "#e3f2fd",       # Light blue - initial given values
+    "given": "#f0f9ff",       # Soft sky - initial given values
 }
 
 
@@ -84,23 +84,23 @@ def _build_grid_html(
         height: 50px;
         text-align: center;
         vertical-align: middle;
-        border: 2px solid #555;
-        font-weight: bold;
-        color: #111111 !important;   /* always dark text — works on both light/dark theme */
+        border: 1px solid #d4d4d4;
+        font-weight: 500;
+        color: #2d3748 !important;
     }
     .futoshiki-grid .h-constraint {
         width: 30px;
         text-align: center;
         vertical-align: middle;
         font-size: 20px;
-        color: #aaaaaa;
+        color: #a0aec0;
     }
     .futoshiki-grid .v-constraint {
         height: 20px;
         text-align: center;
         vertical-align: middle;
         font-size: 16px;
-        color: #aaaaaa;
+        color: #a0aec0;
     }
     .futoshiki-grid .spacer {
         width: 30px;
