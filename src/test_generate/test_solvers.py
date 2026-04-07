@@ -189,7 +189,7 @@ if __name__ == "__main__":
 	parser.add_argument(
 		"--solver",
 		choices=["backtracking", "forward_chaining", "astar"],
-		default="backtracking",
+		default="forward_chaining",
 		help="Which solver to use (default: backtracking)"
 	)
 

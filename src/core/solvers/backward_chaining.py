@@ -1,8 +1,3 @@
-"""
-SLD Resolution Backward Chaining Solver for Futoshiki Puzzles
-(docstring unchanged)
-"""
-
 from __future__ import annotations
 
 from typing import Any, Dict, Generator, List, Optional, Tuple
@@ -11,19 +6,9 @@ from .base_solver import BaseSolver, SolverFactory
 from ..utils.metrics import GLOBAL_METRICS_STORE
 from ..problem.parser import futoshiki_to_puzzle_dict
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Type aliases
-# ─────────────────────────────────────────────────────────────────────────────
-
 Term         = Any
 Substitution = Dict[str, Term]
 Assignments  = Dict[Tuple[int, int], int]
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Term utilities  (unchanged)
-# ─────────────────────────────────────────────────────────────────────────────
 
 def is_var(t: Term) -> bool:
     return isinstance(t, str) and t.startswith("?")
@@ -59,11 +44,6 @@ def unify(t1: Term, t2: Term, theta: Substitution) -> Optional[Substitution]:
 def apply_subst(atom: tuple, theta: Substitution) -> tuple:
     return tuple(walk(arg, theta) if is_var(arg) else arg for arg in atom)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Rule  (unchanged)
-# ─────────────────────────────────────────────────────────────────────────────
-
 class Rule:
     __slots__ = ("head", "body")
     _counter: int = 0
@@ -92,11 +72,6 @@ class Rule:
         if not self.body:
             return f"{self.head}."
         return f"{self.head} :- {', '.join(str(b) for b in self.body)}"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Rule base construction  (unchanged)
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _build_rule_base(
     N: int,
@@ -131,11 +106,6 @@ def _build_rule_base(
         ]),
     ]
     return rules, facts
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SLD Interpreter  (unchanged)
-# ─────────────────────────────────────────────────────────────────────────────
 
 class SLDInterpreter:
     _BUILTINS = frozenset({
@@ -360,10 +330,6 @@ class SLDInterpreter:
         return
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# BaseSolver integration
-# ─────────────────────────────────────────────────────────────────────────────
-
 @SolverFactory.register("backward_chaining")
 class BackwardChainingSolver(BaseSolver):
 
@@ -449,7 +415,7 @@ class BackwardChainingSolver(BaseSolver):
             yield StepState(
                 step_number    = step_num,
                 grid           = final_grid,
-                message        = "✅ Puzzle solved!" if solution else "❌ No solution found",
+                message        = "Puzzle solved" if solution else "No solution found",
                 metrics        = current_metrics(),
                 is_complete    = True,
                 is_solved      = solution is not None,
@@ -459,11 +425,10 @@ class BackwardChainingSolver(BaseSolver):
             self.metrics.stop()
             GLOBAL_METRICS_STORE.add(self.metrics)
 
-    # ── solve() — unchanged from original ────────────────────────────────
-
     def solve(self) -> Dict[str, Any]:
         self.metrics.start()
-        solutions: List[List[List[int]]] = []
+        status   = "none"
+        solution = None
 
         try:
             rules, facts = _build_rule_base(self.n, self._puzzle)
@@ -471,6 +436,8 @@ class BackwardChainingSolver(BaseSolver):
                 (r, c): v
                 for (r, c), v in self._puzzle["given"].items()
             }
+
+            solutions: List[List[List[int]]] = []
 
             for attempt in range(2):
                 current_facts = facts
@@ -501,15 +468,15 @@ class BackwardChainingSolver(BaseSolver):
                 status, solution = "multiple", solutions[0]
                 self.metrics.mark_solved(True)
 
-            return {
-                "status"  : status,
-                "solution": solution,
-                "metrics" : self.metrics.to_dict(),
-            }
-
         finally:
+            # stop() ALWAYS runs before to_dict() so elapsed_seconds is correct
             self.metrics.stop()
             GLOBAL_METRICS_STORE.add(self.metrics)
 
+        return {
+            "status"  : status,
+            "solution": solution,
+            "metrics" : self.metrics.to_dict(),
+        }
 
 __all__ = ["SLDInterpreter", "BackwardChainingSolver"]

@@ -1,21 +1,3 @@
-"""
-FOL Forward Chaining Solver for Futoshiki Puzzles
-
-Implements forward chaining over a grounded CNF knowledge base to:
-  1. Propagate facts via iterated unit propagation
-  2. Detect contradictions (empty clause / complementary facts)
-  3. Derive a complete assignment when possible
-
-The solver works in three phases each iteration:
-  - MATCH  : find clauses that have become unit clauses (one literal left)
-  - FIRE   : assert those literals as new facts
-  - UPDATE : simplify the KB and check for contradiction / completeness
-
-When the KB alone cannot drive further progress (no new unit clauses),
-the solver falls back to a *splitting rule* on the most-constrained atom,
-which gives a complete DPLL-style procedure while still being fact-driven.
-"""
-
 from __future__ import annotations
 
 from copy import deepcopy
@@ -29,26 +11,12 @@ from ..utils.KB_generate.kb_generate import ground_kb
 from ..utils.KB_generate.knowledge_base import KnowledgeBase
 from ..problem.parser import futoshiki_to_puzzle_dict
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Forward Chaining Engine
-# ─────────────────────────────────────────────────────────────────────────────
-
 class ForwardChainer:
-    """
-    FOL Forward Chaining over a grounded CNF knowledge base.
-
-    _fc() is a plain recursive function. During solve_steps(), snapshots
-    are collected as a side effect via self.snapshots. solve() runs _fc()
-    with no snapshot overhead.
-    """
 
     def __init__(self, metrics: Any, N: int) -> None:
         self.N         = N
         self.metrics   = metrics
         self.snapshots: List[Tuple[str, List[List[int]]]] = []
-
-    # ── public entry point ────────────────────────────────────────────────
 
     def run(self, kb: KnowledgeBase, record: bool = False) -> Optional[List[List[int]]]:
         """
@@ -61,8 +29,6 @@ class ForwardChainer:
         if result is None:
             return None
         return self._extract_grid(result)
-
-    # ── core recursive function ───────────────────────────────────────────
 
     def _fc(self, kb: KnowledgeBase, record: bool = False) -> Optional[KnowledgeBase]:
         self.metrics.inc_nodes_expanded()
@@ -131,8 +97,6 @@ class ForwardChainer:
 
         return None
 
-    # ── propagation ───────────────────────────────────────────────────────
-
     def _propagate(self, kb: KnowledgeBase) -> Optional[KnowledgeBase]:
         kb.simplify()
         if kb.has_empty_clause():
@@ -141,8 +105,6 @@ class ForwardChainer:
             if kb.is_false(lit):
                 return None
         return kb
-
-    # ── domain inference ──────────────────────────────────────────────────
 
     def _compute_domains(
         self, kb: KnowledgeBase
@@ -165,8 +127,6 @@ class ForwardChainer:
                 domains[(i, j)] = {fixed} if fixed is not None else possible
 
         return domains
-
-    # ── variable / value ordering ─────────────────────────────────────────
 
     def _mrv_cell(
         self, domains: Dict[Tuple[int, int], Set[int]]
@@ -201,8 +161,6 @@ class ForwardChainer:
 
         return sorted(possible, key=conflict_count)
 
-    # ── helpers ───────────────────────────────────────────────────────────
-
     def _kb_to_grid(self, kb: KnowledgeBase) -> List[List[int]]:
         """Extract current partial grid (0 = unassigned) from KB facts."""
         grid = [[0] * self.N for _ in range(self.N)]
@@ -228,11 +186,6 @@ class ForwardChainer:
                     return None
         return [[buf[i][j] for j in cells] for i in cells]
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# BaseSolver integration
-# ─────────────────────────────────────────────────────────────────────────────
-
 @SolverFactory.register("forward_chaining")
 class ForwardChainingSolver(BaseSolver):
 
@@ -253,19 +206,6 @@ class ForwardChainingSolver(BaseSolver):
     # ── step-by-step visualization ────────────────────────────────────────
 
     def solve_steps(self, puzzle_data: Any) -> Generator[Any, None, None]:
-        """
-        Run the solver with snapshot recording enabled, then replay
-        snapshots as StepState objects for the visualizer.
-
-        Snapshot event types
-        --------------------
-        propagate        — unit propagation pass completed
-        inject:i,j=v     — singleton domain forced cell (i,j) to value v
-        split:i,j=v      — branching: trying value v at cell (i,j)
-        backtrack:i,j    — branch failed, reverting cell (i,j)
-        solved           — complete solution reached (skipped in replay,
-                           handled by the explicit final StepState)
-        """
         from gui.service.visualization_service import StepState
 
         self.metrics.start()
@@ -352,7 +292,7 @@ class ForwardChainingSolver(BaseSolver):
             yield StepState(
                 step_number    = step_num,
                 grid           = final_grid,
-                message        = "✅ Puzzle solved!" if solution else "❌ No solution found",
+                message        = "Puzzle solved!" if solution else "No solution found",
                 metrics        = current_metrics(),
                 is_complete    = True,
                 is_solved      = solution is not None,
@@ -362,10 +302,11 @@ class ForwardChainingSolver(BaseSolver):
             self.metrics.stop()
             GLOBAL_METRICS_STORE.add(self.metrics)
 
-    # ── solve() — unchanged from original ────────────────────────────────
-
     def solve(self) -> Dict[str, Any]:
         self.metrics.start()
+        status   = "none"
+        solution = None
+
         try:
             base_clauses = ground_kb(self.n, self._puzzle)
             chainer      = ForwardChainer(self.metrics, self.n)
@@ -392,14 +333,15 @@ class ForwardChainingSolver(BaseSolver):
                 status, solution = "multiple", solutions[0]
                 self.metrics.mark_solved(True)
 
-            return {
-                "status"  : status,
-                "solution": solution,
-                "metrics" : self.metrics.to_dict(),
-            }
         finally:
+            # stop() ALWAYS runs before to_dict() so elapsed_seconds is correct
             self.metrics.stop()
             GLOBAL_METRICS_STORE.add(self.metrics)
 
+        return {
+            "status"  : status,
+            "solution": solution,
+            "metrics" : self.metrics.to_dict(),
+        }
 
 __all__ = ["ForwardChainer", "ForwardChainingSolver"]
