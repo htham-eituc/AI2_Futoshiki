@@ -8,7 +8,9 @@ providing a clean interface for the GUI components.
 from __future__ import annotations
 
 import sys
+import importlib.util
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Dict, Generator, List, Optional, Tuple
 from dataclasses import dataclass, field
 
@@ -56,6 +58,10 @@ class ComparisonResult:
     error: Optional[str] = None
 
 
+class ExperimentVisualizationError(Exception):
+    """Raised when experiment visualization generation fails."""
+
+
 def _metrics_to_dict(metrics: Any) -> Dict[str, Any]:
     """Normalize metrics to dict regardless of whether it's a dict or SolverMetrics object."""
     if metrics is None:
@@ -78,6 +84,14 @@ class VisualizationService:
 
     # Project root (parent of src/)
     PROJECT_ROOT = SRC_DIR.parent
+    EXPERIMENT_CHART_FILENAMES = [
+        "summary_dashboard.png",
+        "time_comparison.png",
+        "nodes_comparison.png",
+        "difficulty_analysis.png",
+        "size_analysis.png",
+        "detailed_metrics.png",
+    ]
 
     @classmethod
     def get_available_algorithms(cls) -> List[str]:
@@ -585,6 +599,93 @@ class VisualizationService:
 
         return results
 
+    @classmethod
+    def _load_experiment_visualizer_module(cls) -> ModuleType:
+        """Load visualize_experiments.py as a module from project root."""
+        script_path = cls.PROJECT_ROOT / "visualize_experiments.py"
+        if not script_path.exists():
+            raise ExperimentVisualizationError(
+                f"Visualization script not found: {script_path}"
+            )
+
+        spec = importlib.util.spec_from_file_location("visualize_experiments", script_path)
+        if spec is None or spec.loader is None:
+            raise ExperimentVisualizationError(
+                f"Could not load visualization script: {script_path}"
+            )
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    @classmethod
+    def generate_experiment_visualizations(
+        cls,
+        csv_path: Optional[Path] = None,
+        output_dir: Optional[Path] = None,
+    ) -> List[Path]:
+        """
+        Generate experiment chart images from experiment.csv.
+
+        Args:
+            csv_path: CSV input path. Defaults to <project_root>/experiment.csv.
+            output_dir: Output directory. Defaults to <project_root>/charts.
+
+        Returns:
+            Ordered list of generated chart paths.
+        """
+        input_path = csv_path or (cls.PROJECT_ROOT / "experiment.csv")
+        charts_dir = output_dir or (cls.PROJECT_ROOT / "charts")
+
+        if not input_path.exists():
+            raise ExperimentVisualizationError(f"Input CSV not found: {input_path}")
+
+        charts_dir.mkdir(parents=True, exist_ok=True)
+        module = cls._load_experiment_visualizer_module()
+
+        try:
+            df, df_solved = module.load_data(input_path)
+        except Exception as exc:
+            raise ExperimentVisualizationError(
+                f"Failed to load experiment data: {exc}"
+            ) from exc
+
+        if len(df.index) == 0:
+            raise ExperimentVisualizationError("experiment.csv is empty.")
+        if len(df_solved.index) == 0:
+            raise ExperimentVisualizationError(
+                "experiment.csv has no solved rows to visualize."
+            )
+
+        plot_steps = [
+            module.plot_summary_dashboard,
+            module.plot_time_comparison,
+            module.plot_nodes_comparison,
+            module.plot_difficulty_analysis,
+            module.plot_size_analysis,
+            module.plot_detailed_metrics,
+        ]
+        for plot_fn in plot_steps:
+            try:
+                plot_fn(df_solved, charts_dir)
+            except Exception as exc:
+                raise ExperimentVisualizationError(
+                    f"Failed to generate chart '{plot_fn.__name__}': {exc}"
+                ) from exc
+
+        chart_paths: List[Path] = []
+        for filename in cls.EXPERIMENT_CHART_FILENAMES:
+            path = charts_dir / filename
+            if path.exists():
+                chart_paths.append(path)
+
+        if not chart_paths:
+            raise ExperimentVisualizationError(
+                f"No chart files were generated in {charts_dir}"
+            )
+
+        return chart_paths
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -638,4 +739,9 @@ def _parse_cell_from_label(label: str) -> Optional[Tuple[int, int]]:
     return None
 
 
-__all__ = ["VisualizationService", "StepState", "ComparisonResult"]
+__all__ = [
+    "VisualizationService",
+    "StepState",
+    "ComparisonResult",
+    "ExperimentVisualizationError",
+]
