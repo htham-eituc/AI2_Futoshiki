@@ -8,6 +8,36 @@ import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st
 
+MUTED_CHART_COLORS = [
+    "#3b82f6",  # bright blue - primary
+    "#10b981",  # emerald green - success
+    "#f59e0b",  # amber - warning
+    "#8b5cf6",  # violet - accent
+    "#ec4899",  # pink - secondary
+    "#06b6d4",  # cyan - info
+]
+
+CHART_LAYOUT_BASE = {
+    "plot_bgcolor": "#f8f9fa",
+    "paper_bgcolor": "#ffffff",
+    "font": {
+        "color": "#1f2937", 
+        "family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        "size": 13,
+    },
+    "title": {
+        "font": {"size": 17, "color": "#1f2937", "family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"},
+        "x": 0.5,
+        "xanchor": "center",
+    },
+    "margin": {"t": 70, "b": 60, "l": 60, "r": 40},
+    "hoverlabel": {
+        "bgcolor": "#1f2937",
+        "font": {"color": "#ffffff", "size": 13},
+        "bordercolor": "#1f2937",
+    },
+}
+
 
 def render_time_chart(
     df: pd.DataFrame,
@@ -26,6 +56,7 @@ def render_time_chart(
         y="elapsed_seconds",
         color="algorithm",
         barmode="group",
+        color_discrete_sequence=MUTED_CHART_COLORS,
         title=title,
         labels={
             "elapsed_seconds": "Time (seconds)",
@@ -35,6 +66,7 @@ def render_time_chart(
     )
     
     fig.update_layout(
+        **CHART_LAYOUT_BASE,
         xaxis_tickangle=-45,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         hovermode="x unified",
@@ -69,6 +101,7 @@ def render_nodes_chart(
         y=metric,
         color="algorithm",
         barmode="group",
+        color_discrete_sequence=MUTED_CHART_COLORS,
         title=title,
         labels={
             metric: metric.replace("_", " ").title(),
@@ -78,6 +111,7 @@ def render_nodes_chart(
     )
     
     fig.update_layout(
+        **CHART_LAYOUT_BASE,
         xaxis_tickangle=-45,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         hovermode="x unified",
@@ -110,6 +144,7 @@ def render_success_rate_chart(
         x="algorithm",
         y="success_rate",
         color="algorithm",
+        color_discrete_sequence=MUTED_CHART_COLORS,
         title=title,
         labels={
             "success_rate": "Success Rate (%)",
@@ -120,6 +155,7 @@ def render_success_rate_chart(
     
     fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
     fig.update_layout(
+        **CHART_LAYOUT_BASE,
         yaxis_range=[0, 110],
         showlegend=False,
     )
@@ -143,6 +179,7 @@ def render_constraint_checks_chart(
         x="algorithm",
         y="constraint_checks",
         color="algorithm",
+        color_discrete_sequence=MUTED_CHART_COLORS,
         title=title,
         labels={
             "constraint_checks": "Constraint Checks",
@@ -150,7 +187,7 @@ def render_constraint_checks_chart(
         },
     )
     
-    fig.update_layout(showlegend=False)
+    fig.update_layout(**CHART_LAYOUT_BASE, showlegend=False)
     
     st.plotly_chart(fig, use_container_width=True)
 
@@ -171,6 +208,7 @@ def render_backtracks_chart(
         x="testcase",
         y="backtracks",
         color="algorithm",
+        color_discrete_sequence=MUTED_CHART_COLORS,
         markers=True,
         title=title,
         labels={
@@ -181,6 +219,7 @@ def render_backtracks_chart(
     )
     
     fig.update_layout(
+        **CHART_LAYOUT_BASE,
         xaxis_tickangle=-45,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         hovermode="x unified",

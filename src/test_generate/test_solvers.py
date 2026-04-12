@@ -189,9 +189,9 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Test Futoshiki puzzles with different solvers")
 	parser.add_argument(
 		"--solver",
-		choices=["backtracking", "forward_chaining", "backward_chaining", "astar"],
-		default="backward_chaining",
-		help="Which solver to use (default: backward_chaining)"
+		choices=["backtracking", "forward_chaining", "astar"],
+		default="forward_chaining",
+		help="Which solver to use (default: backtracking)"
 	)
 
 	args = parser.parse_args()

@@ -168,7 +168,14 @@ class VisualizationService:
             solver.record_snapshots = True
             result = solver.solve()
             yield from cls._replay_astar_steps(result, puzzle_data)
+            
+        elif algorithm_name == "forward_chaining":
+            solver = SolverFactory.create(algorithm_name, puzzle_data)
+            yield from solver.solve_steps(puzzle_data)
 
+        elif algorithm_name == "backward_chaining":
+            solver = SolverFactory.create(algorithm_name, puzzle_data)
+            yield from solver.solve_steps(puzzle_data)
         else:
             # forward_chaining / backward_chaining / any future solver:
             # Run and show a single result step (no internal snapshots yet)
@@ -312,7 +319,7 @@ class VisualizationService:
             yield StepState(
                 step_number=final_step,
                 grid=solution,
-                message="✅ A* found the solution!",
+                message="A* found the solution!",
                 metrics=final_metrics,
                 is_complete=True,
                 is_solved=True,
@@ -321,7 +328,7 @@ class VisualizationService:
             yield StepState(
                 step_number=final_step,
                 grid=[row[:] for row in puzzle_data.grid],
-                message="❌ A* found no solution",
+                message="A* found no solution",
                 metrics=final_metrics,
                 is_complete=True,
                 is_solved=False,
@@ -486,7 +493,7 @@ class VisualizationService:
         yield StepState(
             step_number=step,
             grid=[r[:] for r in grid],
-            message="✅ Puzzle solved!",
+            message="Puzzle solved!",
             metrics=dict(metrics),
             is_complete=True,
             is_solved=True,

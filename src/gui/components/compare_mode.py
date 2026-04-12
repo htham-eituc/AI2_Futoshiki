@@ -64,18 +64,18 @@ def render_compare_mode() -> None:
             st.rerun()
     
     with col_title:
-        st.markdown("## 📊 Compare Algorithms")
+        st.markdown("## Compare Algorithms")
     
     # Breadcrumb
     st.markdown(
-        '<p style="color: #999; font-size: 14px;">Home > Compare Algorithms</p>',
+        '<p style="color: var(--text-muted); font-size: 14px;">Home > Compare Algorithms</p>',
         unsafe_allow_html=True,
     )
     
     st.markdown("---")
     
     # Algorithm selection section
-    st.markdown("### 🔬 Select Algorithms to Compare")
+    st.markdown("### Select Algorithms to Compare")
     
     algorithms = VisualizationService.get_available_algorithms()
     if not algorithms:
@@ -119,14 +119,14 @@ def render_compare_mode() -> None:
     num_selected = len(st.session_state["compare_selected_algos"])
     
     if num_selected < 2:
-        st.warning("⚠️ Please select at least 2 algorithms to compare.")
+        st.warning("Please select at least 2 algorithms to compare.")
         compare_disabled = True
     else:
-        st.success(f"✅ {num_selected} algorithms selected")
+        st.success(f"{num_selected} algorithms selected")
         compare_disabled = False
     
     if st.button(
-        "🚀 Run Comparison",
+        "Run Comparison",
         disabled=compare_disabled,
         use_container_width=True,
         type="primary",
@@ -166,7 +166,7 @@ def render_compare_mode() -> None:
     # Results section
     if st.session_state["compare_results"]:
         st.markdown("---")
-        st.markdown("## 📈 Results")
+        st.markdown("## Results")
         
         df = _results_to_dataframe(st.session_state["compare_results"])
         
@@ -176,11 +176,11 @@ def render_compare_mode() -> None:
         
         # Charts in tabs
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "⏱️ Execution Time",
-            "🔢 Nodes Generated",
-            "✅ Success Rate",
-            "🔍 Constraint Checks",
-            "↩️ Backtracks",
+            "Execution Time",
+            "Nodes Generated",
+            "Success Rate",
+            "Constraint Checks",
+            "Backtracks",
         ])
         
         with tab1:
@@ -200,11 +200,11 @@ def render_compare_mode() -> None:
         
         # Export section
         st.markdown("---")
-        st.markdown("### 💾 Export Results")
+        st.markdown("### Export Results")
         
         csv_data = df.to_csv(index=False)
         st.download_button(
-            label="📥 Download Results as CSV",
+            label="Download Results as CSV",
             data=csv_data,
             file_name="algorithm_comparison_results.csv",
             mime="text/csv",

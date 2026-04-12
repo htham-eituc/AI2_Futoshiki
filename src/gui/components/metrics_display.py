@@ -20,7 +20,7 @@ def render_metrics(
         show_title: Whether to show the "Metrics" title.
     """
     if show_title:
-        title = "📊 Live Metrics" if is_live else "📊 Final Metrics"
+        title = "Live Metrics" if is_live else "Final Metrics"
         st.markdown(f"### {title}")
     
     # Primary metrics in columns
@@ -87,9 +87,9 @@ def render_final_status(
         message: Optional status message.
     """
     if is_solved:
-        st.success("✅ " + (message or "Puzzle Solved!"))
+        st.success(message or "Puzzle Solved!")
     else:
-        st.error("❌ " + (message or "No solution found"))
+        st.error(message or "No solution found")
 
 
 def render_algorithm_badge(algorithm_name: str) -> None:
@@ -102,16 +102,19 @@ def render_algorithm_badge(algorithm_name: str) -> None:
     st.markdown(
         f"""
         <div style="
-            display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 16px;
-            margin: 10px 0;
+            display: inline-flex;
+            align-items: center;
+            background: var(--accent-primary);
+            color: var(--text-inverse);
+            padding: 8px 18px;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.04em;
+            margin: 12px 0;
+            box-shadow: var(--shadow-sm);
         ">
-            🔬 {algorithm_name.upper()}
+            {algorithm_name.upper()}
         </div>
         """,
         unsafe_allow_html=True,
@@ -126,7 +129,7 @@ def render_step_message(message: str) -> None:
         message: Message to display.
     """
     if message:
-        st.info(f"💡 {message}")
+        st.info(message)
 
 
 def _format_number(n: int) -> str:

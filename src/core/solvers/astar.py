@@ -11,7 +11,9 @@ Algorithm (matches the report):
 
   Variable ordering : MRV  (Minimum Remaining Values)
   Value ordering    : LCV  (Least Constraining Value)
-  Pruning           : AC-3 run before inserting each successor into OPEN
+  Pruning           : AC-3 chỉ chạy lúc khởi đầu (init).
+                      Khi expand node dùng forward checking nhẹ (≠ row/col)
+                      để tạo nhiều snapshot hơn cho visualization.
 """
 
 from __future__ import annotations
@@ -120,6 +122,8 @@ class AStarSolver(BaseSolver):
         m = self.metrics
 
         init_domains = build_initial_domains(n, self._initial_grid)
+
+        # AC-3 chỉ chạy MỘT LẦN ở đây — không chạy lại khi expand node
         init_domains = run_ac3(init_domains, n, self._h_con, self._v_con)
 
         if init_domains is None:
@@ -180,7 +184,11 @@ class AStarSolver(BaseSolver):
                 child_domains[cell] = {value}
                 m.inc_assignments()
 
-                child_domains = run_ac3(child_domains, n, self._h_con, self._v_con)
+                # --------------------------------------------------------
+                # THAY ĐỔI: dùng forward checking nhẹ thay vì run_ac3()
+                # → solver đi vào nhiều nhánh hơn → nhiều snapshot hơn
+                # --------------------------------------------------------
+                child_domains = _forward_check(child_domains, cell, n)
 
                 if child_domains is None:
                     if self.record_snapshots:
@@ -231,6 +239,35 @@ class AStarSolver(BaseSolver):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _forward_check(domains: Domain, assigned: Cell, n: int) -> Optional[Domain]:
+    """
+    Forward checking nhẹ sau khi gán một cell:
+    - Xóa giá trị vừa gán khỏi domain các ô cùng hàng / cùng cột (≠ constraint).
+    - KHÔNG propagate tiếp (không dùng queue như AC-3).
+
+    Ưu điểm cho visualization: solver sẽ khám phá nhiều node hơn vì
+    inequality constraint không được tự động propagate — phát hiện
+    mâu thuẫn muộn hơn, tạo ra nhiều bước trung gian để hiển thị.
+
+    Trả về None nếu có domain nào rỗng (prune nhánh).
+    """
+    r, c = assigned
+    (val,) = domains[assigned]
+
+    peers = (
+        [(r, col) for col in range(n) if col != c] +
+        [(row, c) for row in range(n) if row != r]
+    )
+
+    for peer in peers:
+        if val in domains[peer]:
+            domains[peer].discard(val)
+            if not domains[peer]:
+                return None
+
+    return domains
+
 
 def _signature(domains: Domain) -> frozenset:
     """Hashable representation of the current partial assignment."""

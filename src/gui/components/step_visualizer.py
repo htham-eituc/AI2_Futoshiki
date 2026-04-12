@@ -60,11 +60,11 @@ def render_step_visualization() -> None:
             st.rerun()
     
     with col_title:
-        st.markdown("## 🔍 Step-by-Step Visualization")
+        st.markdown("## Step-by-Step Visualization")
     
     # Breadcrumb
     st.markdown(
-        '<p style="color: #999; font-size: 14px;">Home > Step-by-Step Visualization</p>',
+        '<p style="color: var(--text-muted); font-size: 14px;">Home > Step-by-Step Visualization</p>',
         unsafe_allow_html=True,
     )
     
@@ -75,7 +75,7 @@ def render_step_visualization() -> None:
     
     # Left column - Controls
     with left_col:
-        st.markdown("### ⚙️ Configuration")
+        st.markdown("### Configuration")
         
         # Algorithm selection
         algorithms = VisualizationService.get_available_algorithms()
@@ -113,13 +113,13 @@ def render_step_visualization() -> None:
         
         # Start/Reset button
         if st.session_state["viz_steps"]:
-            if st.button("🔄 Load New Puzzle", use_container_width=True):
+            if st.button("Load New Puzzle", use_container_width=True):
                 st.session_state["viz_steps"] = []
                 st.session_state["viz_current_step"] = 0
                 st.session_state["viz_is_playing"] = False
                 st.rerun()
         else:
-            if st.button("▶️ Start Visualization", use_container_width=True, type="primary"):
+            if st.button("Start Visualization", use_container_width=True, type="primary"):
                 # Validate selections
                 if not selected_algo or not selected_testcase:
                     st.error("Please select both an algorithm and a test case.")
@@ -154,7 +154,7 @@ def render_step_visualization() -> None:
         # Speed control (only when visualization is active)
         if st.session_state["viz_steps"]:
             st.markdown("---")
-            st.markdown("### 🎚️ Playback Speed")
+            st.markdown("### Playback Speed")
             st.session_state["viz_speed"] = render_speed_slider(
                 min_delay=100,
                 max_delay=2000,
@@ -165,18 +165,14 @@ def render_step_visualization() -> None:
     # Right column - Visualization
     with right_col:
         if not st.session_state["viz_steps"]:
-            # Show placeholder
+            # Show placeholder with friendly empty state
             st.markdown(
                 """
-                <div style="
-                    text-align: center;
-                    padding: 100px 20px;
-                    background: #f5f5f5;
-                    border-radius: 10px;
-                    color: #999;
-                ">
-                    <h3>👈 Select an algorithm and test case to begin</h3>
-                    <p>The puzzle visualization will appear here</p>
+                <div class="empty-state">
+                    <h3>Ready to Visualize</h3>
+                    <p style="margin: 0; font-size: 15px;">
+                        Select an algorithm and test case from the left panel, then click "Start Visualization"
+                    </p>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -227,7 +223,7 @@ def render_step_visualization() -> None:
             render_step_message(current_step.message)
             
             # Grid display
-            st.markdown("### 🧩 Puzzle Grid")
+            st.markdown("### Puzzle Grid")
             render_grid(
                 grid=current_step.grid,
                 size=puzzle_data.size,
