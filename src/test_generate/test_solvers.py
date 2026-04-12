@@ -11,7 +11,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 
 from core.solvers.base_solver import SolverFactory
 from core.solvers.forward_chaining import ForwardChainingSolver
-from core.solvers.backtrack import BacktrackingSolver
+from core.solvers.bruteforce import BruteforceSolver
+from core.solvers.backtracking import BacktrackingSolver
 import core.solvers.astar  # noqa: F401 — triggers @SolverFactory.register("astar")
 from core.solvers.backward_chaining import BackwardChainingSolver
 from core.solvers.forward_no_heuristics import ForwardChainingSolverNoHeuristics
@@ -190,9 +191,9 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Test Futoshiki puzzles with different solvers")
 	parser.add_argument(
 		"--solver",
-		choices=["backtracking", "forward_chaining", "backward_chaining"],
-		default="backward_chaining",
-		help="Which solver to use (default: backward_chaining)"
+		choices=["backtracking", "forward_chaining", "astar", "bruteforce"],
+		default="astar",
+		help="Which solver to use (default: backtracking)"
 	)
 
 	args = parser.parse_args()

@@ -33,7 +33,7 @@ from core.solvers.base_solver import SolverFactory, BaseSolver
 from core.utils.metrics import SolverMetrics, MetricsStore
 
 # Import all solvers to register them
-from core.solvers import backtrack, astar, forward_chaining, backward_chaining
+from core.solvers import astar, backtracking
 
 
 def get_puzzle_files(puzzle_dir: Path) -> List[Path]:
