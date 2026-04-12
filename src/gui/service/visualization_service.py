@@ -21,7 +21,7 @@ from core.problem.parser import FutoshikiData, ParserFactory, AlgorithmAdapter
 from core.solvers.base_solver import SolverFactory
 
 # Import solvers to register them
-import core.solvers.backtrack
+import core.solvers.bruteforce
 import core.solvers.astar
 import core.solvers.forward_chaining
 import core.solvers.backward_chaining

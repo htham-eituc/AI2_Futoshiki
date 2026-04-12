@@ -16,8 +16,8 @@ from .base_solver import BaseSolver, SolverFactory
 from ..utils.metrics import GLOBAL_METRICS_STORE
 
 
-@SolverFactory.register("backtracking")
-class BacktrackingSolver(BaseSolver):
+@SolverFactory.register("bruteforce")
+class BruteforceSolver(BaseSolver):
     """
     Basic backtracking solver for Futoshiki puzzles.
 
@@ -26,7 +26,7 @@ class BacktrackingSolver(BaseSolver):
     """
 
     def __init__(self, problem: Any, *, name: Optional[str] = None) -> None:
-        super().__init__(problem, name=name or "Backtracking")
+        super().__init__(problem, name=name or "bruteforce")
 
         self.n: int = problem.size
         self.grid: List[List[int]] = [row[:] for row in problem.grid]
@@ -209,4 +209,4 @@ class BacktrackingSolver(BaseSolver):
         }
 
 
-__all__ = ["BacktrackingSolver"]
+__all__ = ["BruteforceSolver"]
