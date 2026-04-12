@@ -291,34 +291,55 @@ def plot_summary_dashboard(df: pd.DataFrame, output_dir: Path):
     """Create a summary dashboard with key metrics."""
     print("Creating summary dashboard...")
     
-    fig = plt.figure(figsize=(18, 10))
-    gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
+    fig = plt.figure(figsize=(20, 12))
+    gs = fig.add_gridspec(3, 3, hspace=0.4, wspace=0.35, 
+                         top=0.94, bottom=0.06, left=0.08, right=0.98)
     
     # Title
     fig.suptitle('Futoshiki AI Solver Performance Dashboard', 
-                 fontsize=16, fontweight='bold', y=0.98)
+                 fontsize=18, fontweight='bold')
     
     # 1. Overall winner by time
     ax1 = fig.add_subplot(gs[0, 0])
     avg_time = df.groupby('algorithm')['time_ms'].mean().sort_values()
-    avg_time.plot(kind='barh', ax=ax1, color=sns.color_palette("RdYlGn_r", len(avg_time)))
-    ax1.set_title('Avg Time (ms)', fontweight='bold')
-    ax1.set_xlabel('')
+    colors1 = sns.color_palette("RdYlGn_r", len(avg_time))
+    bars1 = ax1.barh(range(len(avg_time)), avg_time.values, color=colors1)
+    ax1.set_yticks(range(len(avg_time)))
+    ax1.set_yticklabels(avg_time.index, fontsize=9)
+    ax1.set_title('Avg Time (ms)', fontweight='bold', fontsize=11, pad=10)
+    ax1.set_xlabel('Time (ms)', fontsize=9)
+    ax1.grid(axis='x', alpha=0.3)
+    # Add value labels on bars
+    for i, (bar, val) in enumerate(zip(bars1, avg_time.values)):
+        ax1.text(val, i, f' {val:.0f}', va='center', fontsize=8)
     
     # 2. Overall winner by nodes
     ax2 = fig.add_subplot(gs[0, 1])
     avg_nodes = df.groupby('algorithm')['nodes_explored'].mean().sort_values()
-    avg_nodes.plot(kind='barh', ax=ax2, color=sns.color_palette("RdYlGn_r", len(avg_nodes)))
-    ax2.set_title('Avg Nodes Explored', fontweight='bold')
-    ax2.set_xlabel('')
+    colors2 = sns.color_palette("RdYlGn_r", len(avg_nodes))
+    bars2 = ax2.barh(range(len(avg_nodes)), avg_nodes.values, color=colors2)
+    ax2.set_yticks(range(len(avg_nodes)))
+    ax2.set_yticklabels(avg_nodes.index, fontsize=9)
+    ax2.set_title('Avg Nodes Explored', fontweight='bold', fontsize=11, pad=10)
+    ax2.set_xlabel('Nodes', fontsize=9)
+    ax2.grid(axis='x', alpha=0.3)
+    ax2.set_xscale('log')
     
     # 3. Success rate
     ax3 = fig.add_subplot(gs[0, 2])
     success = df.groupby('algorithm')['solution_found'].mean() * 100
-    success.sort_values().plot(kind='barh', ax=ax3, color=sns.color_palette("Greens", len(success)))
-    ax3.set_title('Success Rate (%)', fontweight='bold')
+    success_sorted = success.sort_values()
+    colors3 = sns.color_palette("Greens", len(success_sorted))
+    bars3 = ax3.barh(range(len(success_sorted)), success_sorted.values, color=colors3)
+    ax3.set_yticks(range(len(success_sorted)))
+    ax3.set_yticklabels(success_sorted.index, fontsize=9)
+    ax3.set_title('Success Rate (%)', fontweight='bold', fontsize=11, pad=10)
     ax3.set_xlim(0, 105)
-    ax3.set_xlabel('')
+    ax3.set_xlabel('Success Rate (%)', fontsize=9)
+    ax3.grid(axis='x', alpha=0.3)
+    # Add value labels
+    for i, (bar, val) in enumerate(zip(bars3, success_sorted.values)):
+        ax3.text(val + 2, i, f'{val:.0f}%', va='center', fontsize=8)
     
     # 4. Performance by difficulty (time)
     ax4 = fig.add_subplot(gs[1, :])
@@ -329,10 +350,17 @@ def plot_summary_dashboard(df: pd.DataFrame, output_dir: Path):
                                              ordered=True)
     sns.boxplot(data=df_sorted, x='difficulty', y='time_ms', hue='algorithm', 
                 ax=ax4, palette="Set2")
-    ax4.set_title('Time Distribution by Difficulty', fontweight='bold')
+    ax4.set_title('Time Distribution by Difficulty', fontweight='bold', 
+                  fontsize=12, pad=15)
     ax4.set_yscale('log')
-    ax4.set_ylabel('Time (ms, log scale)')
-    ax4.legend(title='Algorithm', ncol=4, loc='upper left')
+    ax4.set_ylabel('Time (ms, log scale)', fontsize=10)
+    ax4.set_xlabel('')  # Remove x-axis label to avoid overlap
+    # Move legend to the right outside the plot area
+    ax4.legend(title='Algorithm', bbox_to_anchor=(1.01, 1), loc='upper left', 
+               fontsize=9, frameon=True, shadow=True)
+    ax4.grid(axis='y', alpha=0.3)
+    # Make tick labels clearer
+    ax4.tick_params(axis='x', labelsize=10)
     
     # 5. Scalability by size
     ax5 = fig.add_subplot(gs[2, :])
@@ -340,15 +368,16 @@ def plot_summary_dashboard(df: pd.DataFrame, output_dir: Path):
     df_copy['size_num'] = df_copy['grid_size'].str.extract(r'(\d+)').astype(int)
     df_copy = df_copy.sort_values('size_num')
     sns.lineplot(data=df_copy, x='grid_size', y='time_ms', hue='algorithm',
-                marker='o', ax=ax5, palette="tab10", linewidth=2)
-    ax5.set_title('Scalability: Time by Grid Size', fontweight='bold')
-    ax5.set_ylabel('Time (ms)')
+                marker='o', ax=ax5, palette="tab10", linewidth=2.5, markersize=8)
+    ax5.set_title('Scalability: Time by Grid Size', fontweight='bold', 
+                  fontsize=12, pad=15)
+    ax5.set_ylabel('Time (ms)', fontsize=10)
+    ax5.set_xlabel('Grid Size', fontsize=10)
     ax5.set_yscale('log')
-    ax5.tick_params(axis='x', rotation=45)
-    ax5.legend(title='Algorithm', ncol=4)
+    ax5.tick_params(axis='x', rotation=0)
+    ax5.legend(title='Algorithm', ncol=4, fontsize=9, loc='upper left')
     ax5.grid(alpha=0.3)
     
-    plt.tight_layout()
     output_path = output_dir / 'summary_dashboard.png'
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     print(f"  ✓ Saved to {output_path}")

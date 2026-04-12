@@ -90,8 +90,16 @@ def run_solver_with_timeout(
     print(f"  Running {solver_name}...", end=" ", flush=True)
     
     try:
+        # Convert puzzle data to appropriate format for each solver
+        adapter = AlgorithmAdapter(puzzle_data)
+        if solver_name.lower() == 'astar':
+            problem_data = adapter.to_astar()
+        else:
+            # Other solvers expect FutoshikiData directly
+            problem_data = puzzle_data
+        
         # Create solver instance
-        solver = SolverFactory.create(solver_name, puzzle_data)
+        solver = SolverFactory.create(solver_name, problem_data)
         solver.metrics.puzzle_id = puzzle_metadata["puzzle_id"]
         
         # Add metadata to metrics
@@ -157,13 +165,15 @@ def run_experiments(
         puzzle_dir: Directory containing puzzle files
         output_path: Path to output CSV file
         timeout: Maximum time per solver run in seconds
-        solvers: List of solver names to run (None = all registered)
+        solvers: List of solver names to run (None = default solvers, excluding backward_chaining)
     """
     # Get available solvers
     available_solvers = list(SolverFactory.registered_solvers().keys())
     
     if solvers is None:
-        solvers_to_run = available_solvers
+        # Default: run all solvers EXCEPT backward_chaining
+        # (backward_chaining can still be run if explicitly specified)
+        solvers_to_run = [s for s in available_solvers if s != 'backward_chaining']
     else:
         solvers_to_run = [s.lower() for s in solvers if s.lower() in available_solvers]
     
@@ -312,7 +322,7 @@ def main():
         "--solvers",
         nargs="+",
         default=None,
-        help="Solvers to run (default: all registered)"
+        help="Solvers to run (default: backtracking, astar, forward_chaining). Use 'backward_chaining' to include it explicitly."
     )
     
     args = parser.parse_args()
