@@ -2,6 +2,7 @@
 
 import os
 import sys
+import inspect
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -11,6 +12,12 @@ from gui.components import compare_mode  # noqa: E402
 
 
 class TestCompareModeExperimentState(unittest.TestCase):
+    def test_compare_mode_has_single_csv_trigger_and_no_legacy_controls(self) -> None:
+        source = inspect.getsource(compare_mode.render_compare_mode)
+        self.assertIn("Visualize experiment.csv", source)
+        self.assertNotIn("Run Comparison", source)
+        self.assertNotIn("Select Algorithms to Compare", source)
+
     def test_idle_to_running_transition(self) -> None:
         fake_st = MagicMock()
         fake_st.session_state = {
