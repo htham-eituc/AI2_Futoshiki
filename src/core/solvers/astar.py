@@ -115,7 +115,7 @@ class _Node:
 class AStarSolver(BaseSolver):
     """A* search solver for Futoshiki."""
 
-    def __init__(self, problem: Any, *, name: str = "astar") -> None:
+    def __init__(self, problem: Dict[str, Any], *, name: str = "A*") -> None:
         super().__init__(problem, name=name)
 
         if isinstance(problem, FutoshikiData):

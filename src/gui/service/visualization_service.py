@@ -8,7 +8,9 @@ providing a clean interface for the GUI components.
 from __future__ import annotations
 
 import sys
+import importlib.util
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Dict, Generator, List, Optional, Tuple
 from dataclasses import dataclass, field
 
@@ -56,6 +58,20 @@ class ComparisonResult:
     error: Optional[str] = None
 
 
+class ExperimentVisualizationError(Exception):
+    """Raised when experiment visualization generation fails."""
+
+
+@dataclass
+class ExperimentVisualizationProgress:
+    """Represents one generated chart step during streaming visualization."""
+    step: int
+    total: int
+    chart_name: str
+    chart_path: Path
+    status: str = "generated"
+
+
 def _metrics_to_dict(metrics: Any) -> Dict[str, Any]:
     """Normalize metrics to dict regardless of whether it's a dict or SolverMetrics object."""
     if metrics is None:
@@ -78,6 +94,22 @@ class VisualizationService:
 
     # Project root (parent of src/)
     PROJECT_ROOT = SRC_DIR.parent
+    EXPERIMENT_CHART_FILENAMES = [
+        "summary_dashboard.png",
+        "time_comparison.png",
+        "nodes_comparison.png",
+        "difficulty_analysis.png",
+        "size_analysis.png",
+        "detailed_metrics.png",
+    ]
+    EXPERIMENT_CHART_STEPS = [
+        ("summary_dashboard", "summary_dashboard.png", "plot_summary_dashboard"),
+        ("time_comparison", "time_comparison.png", "plot_time_comparison"),
+        ("nodes_comparison", "nodes_comparison.png", "plot_nodes_comparison"),
+        ("difficulty_analysis", "difficulty_analysis.png", "plot_difficulty_analysis"),
+        ("size_analysis", "size_analysis.png", "plot_size_analysis"),
+        ("detailed_metrics", "detailed_metrics.png", "plot_detailed_metrics"),
+    ]
 
     @classmethod
     def get_available_algorithms(cls) -> List[str]:
@@ -585,6 +617,247 @@ class VisualizationService:
 
         return results
 
+    @classmethod
+    def _load_experiment_visualizer_module(cls) -> ModuleType:
+        """Load visualize_experiments.py as a module from project root."""
+        script_path = cls.PROJECT_ROOT / "visualize_experiments.py"
+        if not script_path.exists():
+            raise ExperimentVisualizationError(
+                f"Visualization script not found: {script_path}"
+            )
+
+        spec = importlib.util.spec_from_file_location("visualize_experiments", script_path)
+        if spec is None or spec.loader is None:
+            raise ExperimentVisualizationError(
+                f"Could not load visualization script: {script_path}"
+            )
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    @classmethod
+    def _load_experiment_data(
+        cls,
+        module: ModuleType,
+        input_path: Path,
+        require_solved: bool = True,
+    ) -> Tuple[Any, Any]:
+        """Load and validate experiment CSV data."""
+        try:
+            df, df_solved = module.load_data(input_path)
+        except Exception as exc:
+            raise ExperimentVisualizationError(
+                f"Failed to load experiment data: {exc}"
+            ) from exc
+
+        if len(df.index) == 0:
+            raise ExperimentVisualizationError("experiment.csv is empty.")
+        if require_solved and len(df_solved.index) == 0:
+            raise ExperimentVisualizationError(
+                "experiment.csv has no solved rows to visualize."
+            )
+
+        return df, df_solved
+
+    @classmethod
+    def get_experiment_algorithms(
+        cls,
+        csv_path: Optional[Path] = None,
+    ) -> List[str]:
+        """
+        Return sorted unique algorithm labels from experiment.csv.
+
+        Args:
+            csv_path: CSV input path. Defaults to <project_root>/experiment.csv.
+        """
+        input_path = csv_path or (cls.PROJECT_ROOT / "experiment.csv")
+        if not input_path.exists():
+            raise ExperimentVisualizationError(f"Input CSV not found: {input_path}")
+
+        module = cls._load_experiment_visualizer_module()
+        df, _ = cls._load_experiment_data(
+            module=module,
+            input_path=input_path,
+            require_solved=False,
+        )
+
+        if "algorithm" not in df.columns:
+            raise ExperimentVisualizationError("experiment.csv is missing 'algorithm' column.")
+
+        algorithms = sorted(
+            {
+                str(value).strip()
+                for value in df["algorithm"].dropna()
+                if str(value).strip()
+            }
+        )
+        if not algorithms:
+            raise ExperimentVisualizationError("No algorithm values found in experiment.csv.")
+        return algorithms
+
+    @classmethod
+    def _filter_solved_rows_by_algorithms(
+        cls,
+        df: Any,
+        df_solved: Any,
+        selected_algorithms: Optional[List[str]],
+    ) -> Any:
+        """Filter experiment data to selected algorithms and solved rows."""
+        if "algorithm" not in df.columns:
+            raise ExperimentVisualizationError("experiment.csv is missing 'algorithm' column.")
+        if selected_algorithms is None:
+            if len(df_solved.index) == 0:
+                raise ExperimentVisualizationError(
+                    "experiment.csv has no solved rows to visualize."
+                )
+            return df_solved
+
+        cleaned_selection = [algo.strip() for algo in selected_algorithms if algo and algo.strip()]
+        if not cleaned_selection:
+            raise ExperimentVisualizationError(
+                "Please select at least one algorithm to visualize."
+            )
+
+        available = {
+            str(value).strip()
+            for value in df["algorithm"].dropna()
+            if str(value).strip()
+        }
+        missing = [algo for algo in cleaned_selection if algo not in available]
+        if missing:
+            raise ExperimentVisualizationError(
+                "Selected algorithm(s) not found in CSV: " + ", ".join(sorted(missing))
+            )
+
+        df_by_algo = df[
+            df["algorithm"].astype(str).str.strip().isin(cleaned_selection)
+        ]
+        if len(df_by_algo.index) == 0:
+            raise ExperimentVisualizationError(
+                "No CSV rows found for selected algorithm(s)."
+            )
+        if "solution_found" not in df_by_algo.columns:
+            raise ExperimentVisualizationError(
+                "experiment.csv is missing 'solution_found' column."
+            )
+
+        solved_mask = (
+            df_by_algo["solution_found"].eq(True)
+            | df_by_algo["solution_found"].astype(str).str.lower().eq("true")
+        )
+        filtered_solved = df_by_algo[solved_mask].copy()
+        if len(filtered_solved.index) == 0:
+            raise ExperimentVisualizationError(
+                "Selected algorithm(s) have no solved rows to visualize."
+            )
+
+        return filtered_solved
+
+    @classmethod
+    def stream_experiment_visualizations(
+        cls,
+        csv_path: Optional[Path] = None,
+        output_dir: Optional[Path] = None,
+        selected_algorithms: Optional[List[str]] = None,
+    ) -> Generator[ExperimentVisualizationProgress, None, None]:
+        """
+        Generate experiment charts one-by-one and emit progress events.
+
+        Args:
+            csv_path: CSV input path. Defaults to <project_root>/experiment.csv.
+            output_dir: Output directory. Defaults to <project_root>/charts.
+            selected_algorithms: Optional algorithm labels to include.
+
+        Yields:
+            ExperimentVisualizationProgress for each generated chart.
+        """
+        input_path = csv_path or (cls.PROJECT_ROOT / "experiment.csv")
+        charts_dir = output_dir or (cls.PROJECT_ROOT / "charts")
+
+        if not input_path.exists():
+            raise ExperimentVisualizationError(f"Input CSV not found: {input_path}")
+
+        charts_dir.mkdir(parents=True, exist_ok=True)
+        module = cls._load_experiment_visualizer_module()
+        df, df_solved = cls._load_experiment_data(
+            module=module,
+            input_path=input_path,
+            require_solved=False,
+        )
+        filtered_solved = cls._filter_solved_rows_by_algorithms(
+            df=df,
+            df_solved=df_solved,
+            selected_algorithms=selected_algorithms,
+        )
+
+        total_steps = len(cls.EXPERIMENT_CHART_STEPS)
+        for step_index, (chart_name, filename, plot_fn_name) in enumerate(
+            cls.EXPERIMENT_CHART_STEPS,
+            start=1,
+        ):
+            plot_fn = getattr(module, plot_fn_name, None)
+            if plot_fn is None:
+                raise ExperimentVisualizationError(
+                    f"Visualization function not found: {plot_fn_name}"
+                )
+
+            try:
+                plot_fn(filtered_solved, charts_dir)
+            except Exception as exc:
+                raise ExperimentVisualizationError(
+                    f"Failed to generate chart step {step_index}/{total_steps} "
+                    f"'{chart_name}': {exc}"
+                ) from exc
+
+            chart_path = charts_dir / filename
+            if not chart_path.exists():
+                raise ExperimentVisualizationError(
+                    f"Chart step {step_index}/{total_steps} '{chart_name}' did not "
+                    f"produce expected file: {chart_path}"
+                )
+
+            yield ExperimentVisualizationProgress(
+                step=step_index,
+                total=total_steps,
+                chart_name=chart_name,
+                chart_path=chart_path,
+            )
+
+    @classmethod
+    def generate_experiment_visualizations(
+        cls,
+        csv_path: Optional[Path] = None,
+        output_dir: Optional[Path] = None,
+        selected_algorithms: Optional[List[str]] = None,
+    ) -> List[Path]:
+        """
+        Generate experiment chart images from experiment.csv.
+
+        Args:
+            csv_path: CSV input path. Defaults to <project_root>/experiment.csv.
+            output_dir: Output directory. Defaults to <project_root>/charts.
+            selected_algorithms: Optional algorithm labels to include.
+
+        Returns:
+            Ordered list of generated chart paths.
+        """
+        chart_paths = [
+            progress.chart_path
+            for progress in cls.stream_experiment_visualizations(
+                csv_path=csv_path,
+                output_dir=output_dir,
+                selected_algorithms=selected_algorithms,
+            )
+        ]
+
+        if not chart_paths:
+            raise ExperimentVisualizationError(
+                "No chart files were generated during experiment visualization"
+            )
+
+        return chart_paths
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -638,4 +911,10 @@ def _parse_cell_from_label(label: str) -> Optional[Tuple[int, int]]:
     return None
 
 
-__all__ = ["VisualizationService", "StepState", "ComparisonResult"]
+__all__ = [
+    "VisualizationService",
+    "StepState",
+    "ComparisonResult",
+    "ExperimentVisualizationProgress",
+    "ExperimentVisualizationError",
+]

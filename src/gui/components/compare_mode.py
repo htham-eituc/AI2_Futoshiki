@@ -2,50 +2,103 @@
 Compare Mode Screen - Multi-algorithm comparison with charts.
 """
 
-from typing import Dict, List
-import pandas as pd
+from pathlib import Path
+from typing import List, Optional
 import streamlit as st
 
-from ..service.visualization_service import VisualizationService, ComparisonResult
-from .charts import (
-    render_time_chart,
-    render_nodes_chart,
-    render_success_rate_chart,
-    render_constraint_checks_chart,
-    render_backtracks_chart,
-    render_summary_table,
+from ..service.visualization_service import (
+    VisualizationService,
+    ExperimentVisualizationError,
+    ExperimentVisualizationProgress,
 )
 
 
 def _init_session_state() -> None:
     """Initialize session state variables for compare mode."""
     defaults = {
-        "compare_selected_algos": set(),
-        "compare_results": None,
-        "compare_running": False,
+        "compare_experiment_available_algorithms": [],
+        "compare_experiment_selected_algorithms": [],
+        "compare_experiment_options_error": None,
+        "compare_experiment_charts": [],
+        "compare_experiment_error": None,
+        "compare_experiment_running": False,
+        "compare_experiment_step": 0,
+        "compare_experiment_total": 0,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
 
-def _results_to_dataframe(results: List[ComparisonResult]) -> pd.DataFrame:
-    """Convert comparison results to pandas DataFrame."""
-    data = []
-    for r in results:
-        data.append({
-            "algorithm": r.algorithm,
-            "testcase": r.testcase,
-            "solved": r.solved,
-            "elapsed_seconds": r.elapsed_seconds,
-            "nodes_generated": r.nodes_generated,
-            "nodes_expanded": r.nodes_expanded,
-            "constraint_checks": r.constraint_checks,
-            "backtracks": r.backtracks,
-            "assignments": r.assignments,
-            "error": r.error,
-        })
-    return pd.DataFrame(data)
+def _set_experiment_viz_running() -> None:
+    """Set experiment visualization UI state to running."""
+    st.session_state["compare_experiment_running"] = True
+    st.session_state["compare_experiment_error"] = None
+    st.session_state["compare_experiment_charts"] = []
+    st.session_state["compare_experiment_step"] = 0
+    st.session_state["compare_experiment_total"] = 0
+
+
+def _record_experiment_viz_progress(progress: ExperimentVisualizationProgress) -> None:
+    """Record one generated chart and update progress counters."""
+    chart_path = str(progress.chart_path)
+    if chart_path not in st.session_state["compare_experiment_charts"]:
+        st.session_state["compare_experiment_charts"].append(chart_path)
+    st.session_state["compare_experiment_step"] = progress.step
+    st.session_state["compare_experiment_total"] = progress.total
+
+
+def _set_experiment_viz_success(chart_paths: Optional[List[Path]] = None) -> None:
+    """Set experiment visualization UI state to success."""
+    st.session_state["compare_experiment_running"] = False
+    st.session_state["compare_experiment_error"] = None
+    if chart_paths is not None:
+        st.session_state["compare_experiment_charts"] = [str(path) for path in chart_paths]
+    count = len(st.session_state["compare_experiment_charts"])
+    st.session_state["compare_experiment_step"] = count
+    st.session_state["compare_experiment_total"] = max(
+        st.session_state["compare_experiment_total"],
+        count,
+    )
+
+
+def _set_experiment_viz_error(message: str, clear_charts: bool = False) -> None:
+    """Set experiment visualization UI state to error."""
+    st.session_state["compare_experiment_running"] = False
+    st.session_state["compare_experiment_error"] = message
+    if clear_charts:
+        st.session_state["compare_experiment_charts"] = []
+        st.session_state["compare_experiment_step"] = 0
+        st.session_state["compare_experiment_total"] = 0
+
+
+def _render_saved_charts() -> None:
+    """Render charts currently stored in session state."""
+    for chart_path in st.session_state["compare_experiment_charts"]:
+        st.image(chart_path, use_container_width=True)
+
+
+def _load_algorithm_options() -> List[str]:
+    """Load and sync available algorithm options from experiment.csv."""
+    try:
+        options = VisualizationService.get_experiment_algorithms()
+    except ExperimentVisualizationError as exc:
+        st.session_state["compare_experiment_options_error"] = str(exc)
+        st.session_state["compare_experiment_available_algorithms"] = []
+        st.session_state["compare_experiment_selected_algorithms"] = []
+        return []
+
+    st.session_state["compare_experiment_options_error"] = None
+    st.session_state["compare_experiment_available_algorithms"] = options
+    selected = [
+        algo
+        for algo in st.session_state["compare_experiment_selected_algorithms"]
+        if algo in options
+    ]
+    if not selected:
+        selected = options.copy()
+    st.session_state["compare_experiment_selected_algorithms"] = selected
+    return options
 
 
 def render_compare_mode() -> None:
@@ -73,147 +126,89 @@ def render_compare_mode() -> None:
     )
     
     st.markdown("---")
-    
-    # Algorithm selection section
-    st.markdown("### Select Algorithms to Compare")
-    
-    algorithms = VisualizationService.get_available_algorithms()
-    if not algorithms:
-        st.error("No algorithms found! Make sure solvers are registered.")
-        return
-    
-    # Algorithm checkboxes
-    col1, col2, col3 = st.columns(3)
-    cols = [col1, col2, col3]
-    
-    selected_algos = set()
-    for i, algo in enumerate(algorithms):
-        with cols[i % 3]:
-            # Use unique key for each checkbox
-            is_selected = st.checkbox(
-                algo.upper(),
-                value=algo in st.session_state["compare_selected_algos"],
-                key=f"algo_checkbox_{algo}",
-            )
-            if is_selected:
-                selected_algos.add(algo)
-    
-    st.session_state["compare_selected_algos"] = selected_algos
-    
-    # Select All / Clear All buttons
-    col_select, col_clear, col_spacer = st.columns([1, 1, 4])
-    
-    with col_select:
-        if st.button("Select All", use_container_width=True):
-            st.session_state["compare_selected_algos"] = set(algorithms)
-            st.rerun()
-    
-    with col_clear:
-        if st.button("Clear All", use_container_width=True):
-            st.session_state["compare_selected_algos"] = set()
-            st.rerun()
-    
-    st.markdown("---")
-    
-    # Compare button
-    num_selected = len(st.session_state["compare_selected_algos"])
-    
-    if num_selected < 2:
-        st.warning("Please select at least 2 algorithms to compare.")
-        compare_disabled = True
-    else:
-        st.success(f"{num_selected} algorithms selected")
-        compare_disabled = False
-    
-    if st.button(
-        "Run Comparison",
-        disabled=compare_disabled,
-        use_container_width=True,
-        type="primary",
-    ):
-        selected_list = sorted(st.session_state["compare_selected_algos"])
-        testcases = VisualizationService.get_available_testcases()
-        
-        # Progress tracking
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        total_runs = len(selected_list) * len(testcases)
-        current_run = 0
-        
-        all_results = []
-        
-        for testcase in testcases:
-            for algo in selected_list:
-                current_run += 1
-                progress = current_run / total_runs
-                progress_bar.progress(progress)
-                status_text.text(f"Running {algo} on {testcase['name']}... ({current_run}/{total_runs})")
-                
-                # Run single comparison
-                results = VisualizationService.run_batch_comparison(
-                    algorithms=[algo],
-                    testcases=[testcase],
-                )
-                all_results.extend(results)
-        
-        progress_bar.progress(1.0)
-        status_text.text("Comparison complete!")
-        
-        st.session_state["compare_results"] = all_results
-        st.rerun()
-    
-    # Results section
-    if st.session_state["compare_results"]:
-        st.markdown("---")
-        st.markdown("## Results")
-        
-        df = _results_to_dataframe(st.session_state["compare_results"])
-        
-        # Summary table
-        st.markdown("### Summary Statistics")
-        render_summary_table(df)
-        
-        # Charts in tabs
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "Execution Time",
-            "Nodes Generated",
-            "Success Rate",
-            "Constraint Checks",
-            "Backtracks",
-        ])
-        
-        with tab1:
-            render_time_chart(df)
-        
-        with tab2:
-            render_nodes_chart(df, metric="nodes_generated")
-        
-        with tab3:
-            render_success_rate_chart(df)
-        
-        with tab4:
-            render_constraint_checks_chart(df)
-        
-        with tab5:
-            render_backtracks_chart(df)
-        
-        # Export section
-        st.markdown("---")
-        st.markdown("### Export Results")
-        
-        csv_data = df.to_csv(index=False)
-        st.download_button(
-            label="Download Results as CSV",
-            data=csv_data,
-            file_name="algorithm_comparison_results.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
-        
-        # Raw data expander
-        with st.expander("View Raw Data"):
-            st.dataframe(df, use_container_width=True)
 
+    # Experiment CSV visualization section
+    st.markdown("### Experiment CSV Visualization")
+    st.caption("Touch/click to generate charts from experiment.csv and show them here.")
+    available_algorithms = _load_algorithm_options()
+
+    selected_algorithms: List[str] = []
+    if st.session_state["compare_experiment_options_error"]:
+        st.error(st.session_state["compare_experiment_options_error"])
+    elif available_algorithms:
+        selected_algorithms = st.multiselect(
+            "Select algorithms from experiment.csv",
+            options=available_algorithms,
+            default=st.session_state["compare_experiment_selected_algorithms"],
+            help="Only selected algorithms will be used for CSV visualization.",
+        )
+        st.session_state["compare_experiment_selected_algorithms"] = selected_algorithms
+        if not selected_algorithms:
+            st.warning("Please select at least one algorithm to visualize.")
+    else:
+        st.warning("No algorithms are available in experiment.csv.")
+
+    live_rendered = False
+    visualize_disabled = (
+        st.session_state["compare_experiment_running"]
+        or not available_algorithms
+        or not selected_algorithms
+    )
+    if st.button(
+        "Visualize experiment.csv",
+        use_container_width=True,
+        disabled=visualize_disabled,
+    ):
+        _set_experiment_viz_running()
+        live_rendered = True
+        status_placeholder = st.empty()
+        progress_bar = st.progress(0.0)
+        charts_placeholder = st.empty()
+        status_placeholder.info("Starting experiment visualization...")
+        try:
+            for progress in VisualizationService.stream_experiment_visualizations(
+                selected_algorithms=selected_algorithms
+            ):
+                _record_experiment_viz_progress(progress)
+                ratio = progress.step / progress.total if progress.total else 0.0
+                progress_bar.progress(ratio)
+                status_placeholder.info(
+                    f"Generated {progress.step}/{progress.total}: {progress.chart_name}"
+                )
+                with charts_placeholder.container():
+                    _render_saved_charts()
+            _set_experiment_viz_success()
+            progress_bar.progress(1.0)
+            status_placeholder.success(
+                f"Generated {len(st.session_state['compare_experiment_charts'])} experiment charts."
+            )
+        except ExperimentVisualizationError as exc:
+            _set_experiment_viz_error(str(exc))
+            status_placeholder.error(str(exc))
+            if st.session_state["compare_experiment_charts"]:
+                with charts_placeholder.container():
+                    _render_saved_charts()
+
+    if not live_rendered and st.session_state["compare_experiment_running"]:
+        total = st.session_state["compare_experiment_total"]
+        step = st.session_state["compare_experiment_step"]
+        if total > 0:
+            st.info(f"Generating experiment charts... ({step}/{total})")
+        else:
+            st.info("Generating experiment charts...")
+
+    if not live_rendered and st.session_state["compare_experiment_error"]:
+        st.error(st.session_state["compare_experiment_error"])
+
+    if not live_rendered and st.session_state["compare_experiment_charts"]:
+        if st.session_state["compare_experiment_error"]:
+            st.warning(
+                f"Showing {len(st.session_state['compare_experiment_charts'])} chart(s) generated before failure."
+            )
+        else:
+            st.success(
+                f"Generated {len(st.session_state['compare_experiment_charts'])} experiment charts."
+            )
+        _render_saved_charts()
 
 __all__ = ["render_compare_mode"]
