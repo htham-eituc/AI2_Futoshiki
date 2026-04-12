@@ -44,6 +44,7 @@ import heapq
 from typing import Any, Dict, List, Optional, Tuple
 
 from .base_solver import BaseSolver, SolverFactory
+from ..problem.parser import FutoshikiData, AlgorithmAdapter
 from ..utils.metrics import GLOBAL_METRICS_STORE
 from ..heuristics.heuristics import (
     Cell,
@@ -114,12 +115,28 @@ class _Node:
 class AStarSolver(BaseSolver):
     """A* search solver for Futoshiki."""
 
-    def __init__(self, problem: Dict[str, Any], *, name: str = "astar") -> None:
+    def __init__(self, problem: Any, *, name: str = "astar") -> None:
         super().__init__(problem, name=name)
-        self._n:            int             = problem["grid_size"]
-        self._initial_grid: List[List[int]] = problem["initial_grid"]
-        self._h_con:        List[List[int]] = problem["h_constraints"]
-        self._v_con:        List[List[int]] = problem["v_constraints"]
+
+        if isinstance(problem, FutoshikiData):
+            adapted = AlgorithmAdapter(problem).to_astar()
+
+            self._n            = adapted["grid_size"]
+            self._initial_grid = adapted["initial_grid"]
+            self._h_con        = adapted["h_constraints"]
+            self._v_con        = adapted["v_constraints"]
+
+        elif isinstance(problem, dict):
+            # Backward compatibility (your old test_solver)
+            self._n            = problem["grid_size"]
+            self._initial_grid = problem["initial_grid"]
+            self._h_con        = problem["h_constraints"]
+            self._v_con        = problem["v_constraints"]
+
+        else:
+            raise TypeError(
+                f"AStarSolver expects FutoshikiData or dict, got {type(problem)}"
+            )
 
         self._ineq_map  = build_ineq_map(self._n, self._h_con, self._v_con)
         self._peers_map = build_peers_map(self._n)
