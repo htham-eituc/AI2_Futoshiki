@@ -13,6 +13,7 @@ from core.solvers.base_solver import SolverFactory
 from core.solvers.forward_chaining import ForwardChainingSolver
 from core.solvers.backtrack import BacktrackingSolver
 from core.solvers.backward_chaining import BackwardChainingSolver
+from core.solvers.forward_no_heuristics import ForwardChainingSolverNoHeuristics
 from core.utils.metrics import GLOBAL_METRICS_STORE
 from core.problem.parser import ParserFactory, FutoshikiData
 
@@ -168,9 +169,10 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Test Futoshiki puzzles with different solvers")
 	parser.add_argument(
 		"--solver",
-		choices=["backtracking", "forward_chaining", "backward_chaining"],
-		default="backward_chaining",
-		help="Which solver to use (default: backward_chaining)"
+		# choices=["backtracking", "forward_chaining", "backward_chaining"],
+		choices=["forward_chaining_no_heuristics"],
+		default="forward_chaining_no_heuristics",
+		help="Which solver to use (default: forward_chaining_no_heuristics)"
 	)
 	
 	args = parser.parse_args()

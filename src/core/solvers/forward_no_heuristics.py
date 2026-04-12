@@ -1,19 +1,18 @@
 """
-FOL Forward Chaining Solver for Futoshiki Puzzles
+FOL Forward Chaining Solver for Futoshiki Puzzles (WITHOUT HEURISTICS)
 
 Implements forward chaining over a grounded CNF knowledge base to:
   1. Propagate facts via iterated unit propagation
   2. Detect contradictions (empty clause / complementary facts)
   3. Derive a complete assignment when possible
 
-The solver works in three phases each iteration:
-  - MATCH  : find clauses that have become unit clauses (one literal left)
-  - FIRE   : assert those literals as new facts
-  - UPDATE : simplify the KB and check for contradiction / completeness
-
 When the KB alone cannot drive further progress (no new unit clauses),
-the solver falls back to a *splitting rule* on the most-constrained atom,
-which gives a complete DPLL-style procedure while still being fact-driven.
+the solver falls back to a *splitting rule* on the FIRST UNASSIGNED CELL
+in row-major order, trying values in natural order (1 to N).
+
+This version removes the MRV (Minimum Remaining Values) and LCV (Least
+Constraining Value) heuristics to demonstrate their impact on search
+efficiency.
 """
 
 from __future__ import annotations
@@ -30,37 +29,26 @@ from ..problem.parser import futoshiki_to_puzzle_dict
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Forward Chaining Engine  (pure reasoning logic, no solver interface)
+# Forward Chaining Engine (NO HEURISTICS)
 # ─────────────────────────────────────────────────────────────────────────────
 
-class ForwardChainer:
+class ForwardChainerNoHeuristics:
     """
-    FOL Forward Chaining over a grounded CNF knowledge base.
+    FOL Forward Chaining over a grounded CNF knowledge base WITHOUT heuristics.
 
     Algorithm
     ---------
-    The grounded KB for Futoshiki is already in CNF, so "FOL forward
-    chaining" reduces to iterated unit propagation (the standard FOL-FC
-    completeness result for Horn-like fragments) extended with a splitting
-    rule to handle non-Horn clauses.
+    Same as ForwardChainer but uses naive search strategies:
+      - Variable selection: First unassigned cell in row-major order
+      - Value ordering: Natural order (1 to N)
 
-    Each call to _fc() executes:
-
-        1. SIMPLIFY  – run unit propagation inside the KB
-        2. CHECK     – return UNSAT if empty clause or complementary facts found
-        3. EXTRACT   – derive Val(i,j,v) facts from singleton domains
-        4. INJECT    – push new facts as unit clauses; goto 1 if any new facts
-        5. SPLIT     – pick the atom with the smallest remaining domain (MRV)
-                       and recurse on each candidate value (LCV-ordered).
-                       The first satisfying branch wins.
-
-    Metrics are written directly to the SolverMetrics object supplied by
-    the enclosing BaseSolver so they are compatible with BacktrackingSolver.
+    This trades optimality in search for simplicity, resulting in a baseline
+    for comparing against heuristic-guided search performance.
     """
 
     def __init__(self, metrics: Any, N: int) -> None:
         self.N       = N
-        self.metrics = metrics   # SolverMetrics passed in from BaseSolver
+        self.metrics = metrics
 
     # ── public entry point ────────────────────────────────────────────────
 
@@ -92,16 +80,13 @@ class ForwardChainer:
             return kb
 
         # ── Phase 2: singleton-domain forward chaining ────────────────────
-        # If only one value remains possible for a cell, assert it as a fact.
-        # This is the core "forward chaining" step: a new ground fact is
-        # derived from the current KB state and immediately fed back in.
         domains  = self._compute_domains(kb)
         injected = False
 
         for (i, j), possible in domains.items():
             self.metrics.inc_constraint_checks()
             if len(possible) == 0:
-                return None                      # domain wipe-out
+                return None
             if len(possible) == 1:
                 v   = next(iter(possible))
                 lit = pos(Val(i, j, v))
@@ -111,19 +96,18 @@ class ForwardChainer:
                     self.metrics.inc_assignments()
 
         if injected:
-            return self._fc(kb)                  # re-enter with new facts
+            return self._fc(kb)
 
-        # ── Phase 3: stuck — splitting rule on MRV cell ───────────────────
-        split = self._mrv_cell(domains)
+        # ── Phase 3: split on FIRST unassigned cell (NO MRV) ──────────────
+        split = self._first_unassigned_cell(domains)
         if split is None:
-            # All cells have singleton domains — one final propagation pass
-            # clears any remaining non-Val clauses that are now satisfied.
             return self._propagate(kb)
 
         (i, j), possible = split
         self.metrics.inc_nodes_generated()
 
-        for v in self._lcv_order(i, j, possible, domains):
+        # Try values in natural order (NO LCV) ────────────────────────────
+        for v in self._natural_value_order(possible):
             self.metrics.inc_nodes_generated()
             kb_branch = deepcopy(kb)
             kb_branch.clauses.append(frozenset({pos(Val(i, j, v))}))
@@ -135,7 +119,7 @@ class ForwardChainer:
 
             self.metrics.inc_backtracks()
 
-        return None   # all branches exhausted
+        return None
 
     # ── propagation ───────────────────────────────────────────────────────
 
@@ -152,8 +136,6 @@ class ForwardChainer:
         if kb.has_empty_clause():
             return None
 
-        # Complementary-fact check: if L is a known fact but ¬L is also
-        # a known fact, the branch is contradictory.
         for lit in kb.facts:
             if kb.is_false(lit):
                 return None
@@ -168,9 +150,6 @@ class ForwardChainer:
         """
         For every cell (i,j), compute the set of values still possible
         under the current KB facts.
-
-        v is impossible for (i,j)  ↔  ¬Val(i,j,v) is a known fact
-        v is fixed   for (i,j)     ↔   Val(i,j,v)  is a known fact
         """
         cells   = range(1, self.N + 1)
         vals    = range(1, self.N + 1)
@@ -193,52 +172,28 @@ class ForwardChainer:
 
         return domains
 
-    # ── variable / value ordering ─────────────────────────────────────────
+    # ── naive variable / value ordering (NO HEURISTICS) ──────────────────
 
-    def _mrv_cell(
+    def _first_unassigned_cell(
         self, domains: Dict[Tuple[int, int], Set[int]]
     ) -> Optional[Tuple[Tuple[int, int], Set[int]]]:
         """
-        Minimum Remaining Values heuristic.
-        Returns the unassigned cell with the fewest candidates (size > 1),
-        or None if every cell is already decided (singleton domain).
+        Return the first unassigned cell in row-major order (size > 1).
+        No intelligent variable selection — purely sequential.
         """
-        best      : Optional[Tuple[Tuple[int, int], Set[int]]] = None
-        best_size : int = self.N + 1
+        for i in range(1, self.N + 1):
+            for j in range(1, self.N + 1):
+                possible = domains.get((i, j), set())
+                if len(possible) > 1:
+                    return ((i, j), possible)
+        return None
 
-        for (i, j), possible in domains.items():
-            size = len(possible)
-            if 1 < size < best_size:
-                best      = ((i, j), possible)
-                best_size = size
-
-        return best
-
-    def _lcv_order(
-        self,
-        i: int,
-        j: int,
-        possible: Set[int],
-        domains: Dict[Tuple[int, int], Set[int]],
-    ) -> List[int]:
+    def _natural_value_order(self, possible: Set[int]) -> List[int]:
         """
-        Least Constraining Value heuristic.
-        Orders candidates so that the value eliminating the fewest options
-        from row/column peers is tried first.
+        Return values in natural ascending order (1 to N).
+        No intelligent value selection — purely sequential.
         """
-        cells = range(1, self.N + 1)
-
-        def conflict_count(v: int) -> int:
-            count = 0
-            for jj in cells:
-                if jj != j and v in domains.get((i, jj), set()):
-                    count += 1
-            for ii in cells:
-                if ii != i and v in domains.get((ii, j), set()):
-                    count += 1
-            return count
-
-        return sorted(possible, key=conflict_count)
+        return sorted(possible)
 
     # ── solution extraction ───────────────────────────────────────────────
 
@@ -249,7 +204,7 @@ class ForwardChainer:
         """
         cells = range(1, self.N + 1)
         vals  = range(1, self.N + 1)
-        buf   = [[0] * (self.N + 1) for _ in range(self.N + 1)]  # 1-indexed scratch
+        buf   = [[0] * (self.N + 1) for _ in range(self.N + 1)]
 
         for i in cells:
             for j in cells:
@@ -258,9 +213,8 @@ class ForwardChainer:
                         buf[i][j] = v
                         break
                 if buf[i][j] == 0:
-                    return None   # incomplete — shouldn't happen after _fc
+                    return None
 
-        # Convert to 0-indexed to match BacktrackingSolver output
         return [[buf[i][j] for j in cells] for i in cells]
 
 
@@ -268,30 +222,21 @@ class ForwardChainer:
 # BaseSolver integration
 # ─────────────────────────────────────────────────────────────────────────────
 
-@SolverFactory.register("forward_chaining")
-class ForwardChainingSolver(BaseSolver):
+@SolverFactory.register("forward_chaining_no_heuristics")
+class ForwardChainingSolverNoHeuristics(BaseSolver):
     """
-    FOL Forward Chaining solver for Futoshiki puzzles.
+    FOL Forward Chaining solver WITHOUT heuristics.
 
-    Registered as "forward_chaining" in SolverFactory, so it is created
-    and used the same way as BacktrackingSolver:
+    Registered as "forward_chaining_no_heuristics" in SolverFactory:
 
-        solver = SolverFactory.create("forward_chaining", problem)
+        solver = SolverFactory.create("forward_chaining_no_heuristics", problem)
         result = solver.solve()
 
-    The problem object must expose the same interface as accepted by
-    BacktrackingSolver (size, grid, h_constraints, v_constraints).
-
-    solve() return value mirrors BacktrackingSolver exactly:
-        {
-            "status":   "unique" | "multiple" | "none",
-            "solution": List[List[int]] | None,   # 0-indexed
-            "metrics":  dict,
-        }
+    Identical return format to ForwardChainingSolver.
     """
 
     def __init__(self, problem: Any, *, name: Optional[str] = None) -> None:
-        super().__init__(problem, name=name or "ForwardChaining")
+        super().__init__(problem, name=name or "ForwardChainingNoHeuristics")
 
         self.n       = problem.size
         self._puzzle = futoshiki_to_puzzle_dict(problem)
@@ -301,8 +246,6 @@ class ForwardChainingSolver(BaseSolver):
     def _denial_clause(self, solution: List[List[int]]) -> frozenset:
         """
         Returns a clause that forbids `solution` from being found again.
-        The clause asserts: at least one cell must differ from this solution.
-            ∨_{i,j}  ¬Val(i, j, solution[i-1][j-1])
         """
         cells = range(1, self.n + 1)
         return frozenset(
@@ -315,7 +258,7 @@ class ForwardChainingSolver(BaseSolver):
 
     def solve(self) -> Dict[str, Any]:
         """
-        Solve the Futoshiki puzzle using FOL Forward Chaining.
+        Solve the Futoshiki puzzle using FOL Forward Chaining WITHOUT heuristics.
 
         Returns:
             Dict with keys:
@@ -327,7 +270,7 @@ class ForwardChainingSolver(BaseSolver):
 
         try:
             base_clauses = ground_kb(self.n, self._puzzle)
-            chainer      = ForwardChainer(self.metrics, self.n)
+            chainer      = ForwardChainerNoHeuristics(self.metrics, self.n)
             solutions    : List[List[List[int]]] = []
 
             # ── find up to 2 solutions (uniqueness check) ─────────────────
@@ -371,4 +314,4 @@ class ForwardChainingSolver(BaseSolver):
             GLOBAL_METRICS_STORE.add(self.metrics)
 
 
-__all__ = ["ForwardChainer", "ForwardChainingSolver"]
+__all__ = ["ForwardChainerNoHeuristics", "ForwardChainingSolverNoHeuristics"]
