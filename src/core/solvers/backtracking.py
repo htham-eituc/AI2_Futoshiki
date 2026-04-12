@@ -31,9 +31,38 @@ class BacktrackingSolver(BaseSolver):
 
         self.solutions: List[List[List[int]]] = []
 
-    # ------------------------------------------------------------------
-    # Core Backtracking with CSP enhancements
-    # ------------------------------------------------------------------
+    def _is_valid_solution(self, grid):
+        n = self.n
+
+        # Row
+        for row in grid:
+            if sorted(row) != list(range(1, n+1)):
+                return False
+
+        # Column
+        for c in range(n):
+            col = [grid[r][c] for r in range(n)]
+            if sorted(col) != list(range(1, n+1)):
+                return False
+
+        # Inequalities
+        for r in range(n):
+            for c in range(n - 1):
+                con = self.h_constraints[r][c]
+                if con == 1 and not (grid[r][c] < grid[r][c+1]):
+                    return False
+                if con == -1 and not (grid[r][c] > grid[r][c+1]):
+                    return False
+
+        for r in range(n - 1):
+            for c in range(n):
+                con = self.v_constraints[r][c]
+                if con == 1 and not (grid[r][c] < grid[r+1][c]):
+                    return False
+                if con == -1 and not (grid[r][c] > grid[r+1][c]):
+                    return False
+
+        return True
 
     def _backtrack(self, domains, limit=2):
         if len(self.solutions) >= limit:
@@ -42,10 +71,12 @@ class BacktrackingSolver(BaseSolver):
         # MRV selection
         cell = select_mrv_cell(domains)
 
-        # All assigned → solution found
         if cell is None:
             solution = domains_to_grid(domains, self.n)
-            self.solutions.append(solution)
+
+            if self._is_valid_solution(solution):
+                self.solutions.append(solution)
+
             return len(self.solutions) >= limit
 
         self.metrics.inc_nodes_expanded()
