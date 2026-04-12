@@ -22,7 +22,7 @@ class BacktrackingSolver(BaseSolver):
     """
 
     def __init__(self, problem: Any, *, name: Optional[str] = None) -> None:
-        super().__init__(problem, name=name or "backtracking")
+        super().__init__(problem, name=name or "Backtracking")
 
         self.n = problem.size
         self.grid = [row[:] for row in problem.grid]

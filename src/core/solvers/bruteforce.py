@@ -26,7 +26,7 @@ class BruteforceSolver(BaseSolver):
     """
 
     def __init__(self, problem: Any, *, name: Optional[str] = None) -> None:
-        super().__init__(problem, name=name or "bruteforce")
+        super().__init__(problem, name=name or "BruteForce")
 
         self.n: int = problem.size
         self.grid: List[List[int]] = [row[:] for row in problem.grid]
