@@ -74,6 +74,7 @@ class _Node:
         self.h       = h
         self.f       = g + h
         self.grid    = grid
+
         _Node._counter += 1
         self._id = _Node._counter
 
@@ -81,14 +82,6 @@ class _Node:
         return (self.f, self._id) < (other.f, other._id)
 
     def is_goal(self, n: int, ineq_map: Dict) -> bool:
-        """
-        Validate đầy đủ:
-          (a) mọi cell đã được gán
-          (b) all-different trên từng hàng và cột
-          (c) mọi inequality constraint thỏa mãn
-        Cần thiết vì h dùng raw size (không tight) nên A* có thể expand
-        node "full assigned" nhưng vi phạm constraints.
-        """
         if not all(len(v) == 1 for v in self.domains.values()):
             return False
 
@@ -121,7 +114,7 @@ class _Node:
 class AStarSolver(BaseSolver):
     """A* search solver for Futoshiki."""
 
-    def __init__(self, problem: Dict[str, Any], *, name: str = "A*") -> None:
+    def __init__(self, problem: Dict[str, Any], *, name: str = "astar") -> None:
         super().__init__(problem, name=name)
         self._n:            int             = problem["grid_size"]
         self._initial_grid: List[List[int]] = problem["initial_grid"]
