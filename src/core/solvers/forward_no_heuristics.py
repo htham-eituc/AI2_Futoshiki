@@ -236,7 +236,7 @@ class ForwardChainingSolverNoHeuristics(BaseSolver):
     """
 
     def __init__(self, problem: Any, *, name: Optional[str] = None) -> None:
-        super().__init__(problem, name=name or "ForwardChainingNoHeuristics")
+        super().__init__(problem, name=name or "FCNoHeuristics")
 
         self.n       = problem.size
         self._puzzle = futoshiki_to_puzzle_dict(problem)
