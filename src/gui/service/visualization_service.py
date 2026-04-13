@@ -28,7 +28,6 @@ import core.solvers.astar
 import core.solvers.forward_chaining
 import core.solvers.backward_chaining
 
-
 @dataclass
 class StepState:
     """Represents the state at a single algorithm step."""
@@ -187,7 +186,7 @@ class VisualizationService:
             },
         )
 
-        if algorithm_name == "backtracking":
+        if algorithm_name == "bruteforce":
             # Backtracking: inline step-by-step simulation
             solver = SolverFactory.create(algorithm_name, puzzle_data)
             yield from cls._run_backtracking_steps(solver, puzzle_data)
@@ -208,6 +207,11 @@ class VisualizationService:
         elif algorithm_name == "backward_chaining":
             solver = SolverFactory.create(algorithm_name, puzzle_data)
             yield from solver.solve_steps(puzzle_data)
+
+        elif algorithm_name == "backtracking":
+            solver = SolverFactory.create(algorithm_name, puzzle_data)
+            yield from solver.solve_steps()
+
         else:
             # forward_chaining / backward_chaining / any future solver:
             # Run and show a single result step (no internal snapshots yet)
