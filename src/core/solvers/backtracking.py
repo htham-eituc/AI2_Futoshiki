@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from .base_solver import BaseSolver, SolverFactory
 from ..utils.metrics import GLOBAL_METRICS_STORE
 
-# Import your AC3 utilities
+                           
 from ..heuristics.ac3 import (
     build_initial_domains,
     run_ac3,
@@ -31,18 +31,18 @@ class BacktrackingSolver(BaseSolver):
 
         self.solutions: List[List[List[int]]] = []
 
-    # ------------------------------------------------------------------
-    # Core Backtracking with CSP enhancements
-    # ------------------------------------------------------------------
+                                                                        
+                                             
+                                                                        
 
     def _backtrack(self, domains, limit=2):
         if len(self.solutions) >= limit:
             return True
 
-        # MRV selection
+                       
         cell = select_mrv_cell(domains)
 
-        # All assigned → solution found
+                                       
         if cell is None:
             solution = domains_to_grid(domains, self.n)
             self.solutions.append(solution)
@@ -50,20 +50,20 @@ class BacktrackingSolver(BaseSolver):
 
         self.metrics.inc_nodes_expanded()
 
-        # LCV ordering
+                      
         for value in lcv_order(
             cell, domains, self.n, self.h_constraints, self.v_constraints
         ):
             self.metrics.inc_nodes_generated()
 
-            # Copy domains
+                          
             new_domains = {k: set(v) for k, v in domains.items()}
 
-            # Assign value
+                          
             new_domains[cell] = {value}
             self.metrics.inc_assignments()
 
-            # Run AC-3 (constraint propagation)
+                                               
             pruned = run_ac3(
                 new_domains,
                 self.n,
@@ -71,12 +71,12 @@ class BacktrackingSolver(BaseSolver):
                 self.v_constraints,
             )
 
-            # If inconsistency → skip
+                                     
             if pruned is None:
                 self.metrics.inc_backtracks()
                 continue
 
-            # Continue search
+                             
             if self._backtrack(pruned, limit):
                 return True
 
@@ -84,9 +84,9 @@ class BacktrackingSolver(BaseSolver):
 
         return False
 
-    # ------------------------------------------------------------------
-    # Solve entry
-    # ------------------------------------------------------------------
+                                                                        
+                 
+                                                                        
 
     def solve(self) -> Dict[str, Any]:
         self.metrics.start()
@@ -95,10 +95,10 @@ class BacktrackingSolver(BaseSolver):
         solution = None
 
         try:
-            # Build initial domains
+                                   
             domains = build_initial_domains(self.n, self.grid)
 
-            # Initial AC-3 propagation
+                                      
             domains = run_ac3(
                 domains,
                 self.n,
@@ -114,7 +114,7 @@ class BacktrackingSolver(BaseSolver):
                     "metrics": self.metrics.to_dict(),
                 }
 
-            # Backtracking search
+                                 
             self._backtrack(domains, limit=2)
 
             if len(self.solutions) == 0:

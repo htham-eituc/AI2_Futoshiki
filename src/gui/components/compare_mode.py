@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 import streamlit as st
 
-from ..service.visualization_service import (
+from ..services.visualization_service import (
     VisualizationService,
     ExperimentVisualizationError,
     ExperimentVisualizationProgress,
@@ -41,7 +41,7 @@ def _set_experiment_viz_running() -> None:
 
 def _record_experiment_viz_progress(progress: ExperimentVisualizationProgress) -> None:
     """Record one generated chart and update progress counters."""
-    chart_path = str(progress.chart_path)
+    chart_path = progress.chart_path.as_posix()
     if chart_path not in st.session_state["compare_experiment_charts"]:
         st.session_state["compare_experiment_charts"].append(chart_path)
     st.session_state["compare_experiment_step"] = progress.step
@@ -105,11 +105,11 @@ def render_compare_mode() -> None:
     """Render the compare mode screen."""
     _init_session_state()
     
-    # Header with back button
+                             
     col_back, col_title = st.columns([1, 5])
     with col_back:
         if st.button("← Back to Home"):
-            # Clear compare state
+                                 
             for key in list(st.session_state.keys()):
                 if key.startswith("compare_"):
                     del st.session_state[key]
@@ -119,7 +119,7 @@ def render_compare_mode() -> None:
     with col_title:
         st.markdown("## Compare Algorithms")
     
-    # Breadcrumb
+                
     st.markdown(
         '<p style="color: var(--text-muted); font-size: 14px;">Home > Compare Algorithms</p>',
         unsafe_allow_html=True,
@@ -127,7 +127,7 @@ def render_compare_mode() -> None:
     
     st.markdown("---")
 
-    # Experiment CSV visualization section
+                                          
     st.markdown("### Experiment CSV Visualization")
     st.caption("Touch/click to generate charts from experiment.csv and show them here.")
     available_algorithms = _load_algorithm_options()

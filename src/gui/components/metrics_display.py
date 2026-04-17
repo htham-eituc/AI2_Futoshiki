@@ -23,7 +23,7 @@ def render_metrics(
         title = "Live Metrics" if is_live else "Final Metrics"
         st.markdown(f"### {title}")
     
-    # Primary metrics in columns
+                                
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -50,7 +50,7 @@ def render_metrics(
             _format_number(metrics.get("backtracks", 0)),
         )
     
-    # Secondary metrics
+                       
     col5, col6 = st.columns(2)
     
     with col5:

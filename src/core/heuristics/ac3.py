@@ -14,9 +14,9 @@ Cell = Tuple[int, int]
 Domain = Dict[Cell, Set[int]]
 
 
-# ---------------------------------------------------------------------------
-# Domain initialisation
-# ---------------------------------------------------------------------------
+                                                                             
+                       
+                                                                             
 
 def build_initial_domains(n: int, grid: List[List[int]]) -> Domain:
     """
@@ -31,9 +31,9 @@ def build_initial_domains(n: int, grid: List[List[int]]) -> Domain:
     return domains
 
 
-# ---------------------------------------------------------------------------
-# Inequality arc helpers
-# ---------------------------------------------------------------------------
+                                                                             
+                        
+                                                                             
 
 def _inequality_arcs(
     n: int,
@@ -69,9 +69,9 @@ def _inequality_arcs(
     return ineq
 
 
-# ---------------------------------------------------------------------------
-# Revision functions
-# ---------------------------------------------------------------------------
+                                                                             
+                    
+                                                                             
 
 def _revise_neq(domains: Domain, xi: Cell, xj: Cell) -> bool:
     """
@@ -108,9 +108,9 @@ def _revise_ineq(domains: Domain, xi: Cell, xj: Cell, direction: int) -> bool:
     return False
 
 
-# ---------------------------------------------------------------------------
-# Core AC-3
-# ---------------------------------------------------------------------------
+                                                                             
+           
+                                                                             
 
 def run_ac3(
     domains: Domain,
@@ -129,7 +129,7 @@ def run_ac3(
     domains = deepcopy(domains)
     queue: deque = deque()
 
-    # All-different arcs: row uniqueness
+                                        
     for r in range(n):
         cols = [(r, c) for c in range(n)]
         for xi in cols:
@@ -137,7 +137,7 @@ def run_ac3(
                 if xi != xj:
                     queue.append(("neq", xi, xj))
 
-    # All-different arcs: column uniqueness
+                                           
     for c in range(n):
         rows = [(r, c) for r in range(n)]
         for xi in rows:
@@ -145,7 +145,7 @@ def run_ac3(
                 if xi != xj:
                     queue.append(("neq", xi, xj))
 
-    # Inequality arcs
+                     
     ineq_arcs = _inequality_arcs(n, h_constraints, v_constraints)
     for cell_a, cell_b, direction in ineq_arcs:
         queue.append(("ineq", cell_a, cell_b, direction))
@@ -168,7 +168,7 @@ def run_ac3(
                     if xk != xi and xk != xj:
                         queue.append(("neq", xk, xi))
 
-        else:  # "ineq"
+        else:          
             _, xi, xj, direction = item
             if _revise_ineq(domains, xi, xj, direction):
                 if not domains[xi]:
@@ -180,9 +180,9 @@ def run_ac3(
     return domains
 
 
-# ---------------------------------------------------------------------------
-# Heuristic helpers (used by A*)
-# ---------------------------------------------------------------------------
+                                                                             
+                                
+                                                                             
 
 def compute_heuristic(domains: Domain) -> float:
     """h(s) = number of unassigned cells (domain size > 1)."""
@@ -217,9 +217,9 @@ def lcv_order(
     return sorted(domains[cell], key=count_eliminated)
 
 
-# ---------------------------------------------------------------------------
-# Utility
-# ---------------------------------------------------------------------------
+                                                                             
+         
+                                                                             
 
 def domains_to_grid(domains: Domain, n: int) -> List[List[int]]:
     """Convert domains to N×N grid. Unassigned cells → 0."""

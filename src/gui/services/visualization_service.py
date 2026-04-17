@@ -14,7 +14,7 @@ from types import ModuleType
 from typing import Any, Dict, Generator, List, Optional, Tuple
 from dataclasses import dataclass, field
 
-# Add src directory to path for imports
+                                       
 SRC_DIR = Path(__file__).resolve().parents[2]
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
@@ -22,7 +22,7 @@ if str(SRC_DIR) not in sys.path:
 from core.problem.parser import FutoshikiData, ParserFactory, AlgorithmAdapter
 from core.solvers.base_solver import SolverFactory
 
-# Import solvers to register them
+                                 
 import core.solvers.bruteforce
 import core.solvers.astar
 import core.solvers.forward_chaining
@@ -86,13 +86,13 @@ def _metrics_to_dict(metrics: Any) -> Dict[str, Any]:
 class VisualizationService:
     """Service layer for algorithm visualization."""
 
-    # Directories to scan for testcases (relative to project root)
+                                                                  
     TESTCASE_DIRS = [
         "src/test_generate",
         "data/inputs",
     ]
 
-    # Project root (parent of src/)
+                                   
     PROJECT_ROOT = SRC_DIR.parent
     EXPERIMENT_CHART_FILENAMES = [
         "summary_dashboard.png",
@@ -173,7 +173,7 @@ class VisualizationService:
         Yields:
             StepState objects for each algorithm step.
         """
-        # Initial state (step 0) — always shown first
+                                                     
         yield StepState(
             step_number=0,
             grid=[row[:] for row in puzzle_data.grid],
@@ -188,12 +188,12 @@ class VisualizationService:
         )
 
         if algorithm_name == "backtracking":
-            # Backtracking: inline step-by-step simulation
+                                                          
             solver = SolverFactory.create(algorithm_name, puzzle_data)
             yield from cls._run_backtracking_steps(solver, puzzle_data)
 
         elif algorithm_name == "astar":
-            # A*: adapt problem, run with snapshots enabled, replay snapshots
+                                                                             
             adapter = AlgorithmAdapter(puzzle_data)
             problem = adapter.to_astar()
             solver = SolverFactory.create(algorithm_name, problem)
@@ -209,8 +209,8 @@ class VisualizationService:
             solver = SolverFactory.create(algorithm_name, puzzle_data)
             yield from solver.solve_steps(puzzle_data)
         else:
-            # forward_chaining / backward_chaining / any future solver:
-            # Run and show a single result step (no internal snapshots yet)
+                                                                       
+                                                                           
             solver = SolverFactory.create(algorithm_name, puzzle_data)
             result = solver.solve()
             metrics = _metrics_to_dict(result.get("metrics", {}))
@@ -235,9 +235,9 @@ class VisualizationService:
                     is_solved=False,
                 )
 
-    # ------------------------------------------------------------------
-    # A* snapshot replay
-    # ------------------------------------------------------------------
+                                                                        
+                        
+                                                                        
 
     @classmethod
     def _replay_astar_steps(
@@ -260,7 +260,7 @@ class VisualizationService:
         solution = result.get("solution")
         extra = metrics.get("extra", {})
 
-        # Collect and sort snapshots by step index
+                                                  
         snaps = []
         for key, value in extra.items():
             if key.startswith("snap_") and isinstance(value, dict):
@@ -268,7 +268,7 @@ class VisualizationService:
         snaps.sort(key=lambda s: s.get("step", 0))
 
         if not snaps:
-            # No snapshots — fall back to single-step display
+                                                             
             if solution:
                 yield StepState(
                     step_number=1,
@@ -289,8 +289,8 @@ class VisualizationService:
                 )
             return
 
-        # Running metrics counters — accumulate from final metrics
-        # We show final metrics on last step; intermediate steps show partial counts
+                                                                  
+                                                                                    
         total_expanded = metrics.get("nodes_expanded", 0)
         total_generated = metrics.get("nodes_generated", 0)
         total_checks = metrics.get("constraint_checks", 0)
@@ -303,17 +303,17 @@ class VisualizationService:
             label: str = snap.get("label", "")
             step_num = i + 1
 
-            # Detect what kind of step this is from the label
+                                                             
             is_pruned = "PRUNED" in label
             is_assign = label.startswith("assign")
 
-            # Determine highlighted cell from label if possible
-            # Labels look like: "assign (r,c)=v ..." or "PRUNED (r,c)=v"
+                                                               
+                                                                        
             active_cell = _parse_cell_from_label(label)
             changed_cell = active_cell if is_assign else None
             conflict_cells = [active_cell] if is_pruned and active_cell else []
 
-            # Partial metrics: scale linearly by progress through snaps
+                                                                       
             frac = (i + 1) / n_snaps
             partial_metrics = {
                 "nodes_generated": int(total_generated * frac),
@@ -336,7 +336,7 @@ class VisualizationService:
                 is_solved=False,
             )
 
-        # Final step — show solution (or failure)
+                                                 
         final_step = n_snaps + 1
         final_metrics = {
             "nodes_generated": total_generated,
@@ -366,9 +366,9 @@ class VisualizationService:
                 is_solved=False,
             )
 
-    # ------------------------------------------------------------------
-    # Backtracking inline step-by-step
-    # ------------------------------------------------------------------
+                                                                        
+                                      
+                                                                        
 
     @classmethod
     def _run_backtracking_steps(
@@ -531,9 +531,9 @@ class VisualizationService:
             is_solved=True,
         )
 
-    # ------------------------------------------------------------------
-    # Batch comparison
-    # ------------------------------------------------------------------
+                                                                        
+                      
+                                                                        
 
     @classmethod
     def run_batch_comparison(
@@ -582,7 +582,7 @@ class VisualizationService:
                     if algo == "astar":
                         problem = adapter.to_astar()
                         solver = SolverFactory.create(algo, problem)
-                        solver.record_snapshots = False  # Save memory in batch mode
+                        solver.record_snapshots = False                             
                     else:
                         problem = puzzle_data
                         solver = SolverFactory.create(algo, problem)
@@ -619,8 +619,8 @@ class VisualizationService:
 
     @classmethod
     def _load_experiment_visualizer_module(cls) -> ModuleType:
-        """Load visualize_experiments.py as a module from project root."""
-        script_path = cls.PROJECT_ROOT / "visualize_experiments.py"
+        """Load the experiment visualizer module from src/experiments."""
+        script_path = cls.PROJECT_ROOT / "src" / "experiments" / "visualize_experiments.py"
         if not script_path.exists():
             raise ExperimentVisualizationError(
                 f"Visualization script not found: {script_path}"
@@ -859,9 +859,9 @@ class VisualizationService:
         return chart_paths
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+                                                                             
+         
+                                                                             
 
 def _format_astar_label(label: str) -> str:
     """
@@ -874,24 +874,24 @@ def _format_astar_label(label: str) -> str:
     """
     import re
 
-    # --- assign (r,c)=v g=G h=H ---
+                                    
     m = re.match(r"assign\s+\((\d+),\s*(\d+)\)=(\d+)", label)
     if m:
         r, c, v = int(m.group(1)), int(m.group(2)), int(m.group(3))
         return f"Assigned {v} to cell (row {r+1}, col {c+1})"
 
-    # --- PRUNED (r,c)=v ---
+                            
     m = re.match(r"PRUNED\s+\((\d+),\s*(\d+)\)=(\d+)", label)
     if m:
         r, c, v = int(m.group(1)), int(m.group(2)), int(m.group(3))
         return f"Pruned value {v} at cell (row {r+1}, col {c+1}) — domain became empty"
 
-    # --- expand g=G h=H f=F ---
+                                
     m = re.match(r"expand\s+", label)
     if m:
         return "Expanding node"
 
-    # fallback — return as-is but capitalised
+                                             
     return label.capitalize()
 
 

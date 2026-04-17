@@ -35,7 +35,7 @@ class SolverFactory:
 
 	@classmethod
 	def register(
-		cls, name: str
+	 cls, name: str
 	) -> Callable[[Type[BaseSolver]], Type[BaseSolver]]:
 		"""Decorator to register a solver class with a string key."""
 
@@ -44,7 +44,7 @@ class SolverFactory:
 		def decorator(solver_cls: Type[BaseSolver]) -> Type[BaseSolver]:
 			if not issubclass(solver_cls, BaseSolver):
 				raise TypeError(
-					f"Registered solver must inherit from BaseSolver, got {solver_cls.__name__}."
+				 f"Registered solver must inherit from BaseSolver, got {solver_cls.__name__}."
 				)
 			cls._registry[normalized_name] = solver_cls
 			return solver_cls
@@ -60,7 +60,7 @@ class SolverFactory:
 		if solver_cls is None:
 			available = ", ".join(sorted(cls._registry.keys())) or "<empty>"
 			raise ValueError(
-				f"Unknown solver '{name}'. Available solvers: {available}"
+			 f"Unknown solver '{name}'. Available solvers: {available}"
 			)
 		return solver_cls(problem, **kwargs)
 

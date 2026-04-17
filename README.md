@@ -1,84 +1,62 @@
-# 🧠 Futoshiki AI Solver
+# Futoshiki AI Solver
 
-This project implements multiple AI approaches to solve the **Futoshiki puzzle**, including:
-- Backtracking / Brute-force
-- A* Search
-- Forward Chaining
-- Backward Chaining (SLD Resolution)
-- First-Order Logic → CNF
+This project solves Futoshiki puzzles with multiple AI strategies and includes a Streamlit interface for step-by-step visualization and algorithm comparison.
 
-It also includes a **Streamlit GUI** for visualization and comparison.
+## Project structure
 
----
-
-## 📁 Project Structure
-
-```
-futoshiki-ai/
-│
-├── data/
-│ ├── inputs/ # Input puzzles (.txt)
-│ └── outputs/ # Solver outputs
-│
+```text
+AI2_Futoshiki/
 ├── src/
-│ ├── core/ # 🔥 All solving logic (NO GUI)
-│ │
-│ │ ├── problem/ # Problem + State representation
-│ │ ├── solvers/ # All algorithms (A*, backtracking, FOL, ...)
-│ │ ├── fol/ # First-Order Logic + CNF
-│ │ ├── heuristics/# A* heuristics
-│ │ └── utils/ # Helper utilities
-│ │
-│ ├── gui/ # 🎨 Streamlit GUI
-│ │ ├── app.py # Entry point
-│ │ ├── pages/ # Solver & comparison pages
-│ │ ├── components/# UI components (grid, stats, controls)
-│ │ └── services/ # Connect GUI ↔ core logic
-│ │
-│ ├── experiments/ # Benchmark & batch testing
-│ └── main.py # CLI entry (optional)
-│
-├── docs/ # Report, references
-├── requirements.txt
-└── README.md
+│   ├── core/                    # Puzzle model, heuristics, solvers, metrics
+│   ├── gui/
+│   │   ├── app.py               # Canonical GUI entrypoint
+│   │   ├── components/
+│   │   └── services/
+│   ├── experiments/             # Experiment runner + visualization modules
+│   ├── test_generate/           # Puzzle fixtures and test helpers
+│   └── main.py                  # Canonical CLI entrypoint
+├── docs/
+├── charts/
+└── requirements.txt
 ```
 
----
+## Canonical entrypoints
 
-## 🧩 Design Principles
+1. Install dependencies
+   ```bash
+   python -m pip install -r requirements.txt
+   ```
+2. Run GUI
+   ```bash
+   python src/main.py gui
+   ```
+3. Run benchmark experiments
+   ```bash
+   python src/main.py experiments run --timeout 60
+   ```
+4. Generate experiment charts
+   ```bash
+   python src/main.py experiments visualize --input experiment.csv --output charts
+   ```
 
-- **Separation of concerns**
-  - `core/` → logic only
-  - `gui/` → visualization only
+## Migration map
 
-- **Reusable architecture**
-  - All solvers inherit from a common `BaseSolver`
-  - Shared `Problem`, `State`, and `Metrics`
+| Old path | New path |
+| --- | --- |
+| `src/gui/service/` | `src/gui/services/` |
+| `src/core/experiments/run_experiments.py` | `src/experiments/run_experiments.py` |
+| `visualize_experiments.py` (implementation) | `src/experiments/visualize_experiments.py` |
+| Root wrapper scripts (`run_experiments.py`, `visualize_experiments.py`) | Removed (use `python src/main.py ...`) |
 
-- **Extensible**
-  - Easy to add new algorithms or heuristics
+## Contribution rules
 
----
+1. Keep solver logic inside `src/core` and UI logic inside `src/gui`.
+2. Place experiment/benchmark scripts in `src/experiments`.
+3. Use `src/main.py` as the canonical entrypoint in docs and automation.
+4. Update imports and tests in the same change whenever modules move.
 
-## 🚀 How to Run
+## Source comment governance
 
-### 1. Install dependencies
-
-pip install -r requirements.txt
-
-
-### 2. Run GUI
-
-streamlit run src/gui/app.py
-
-
----
-
-## 👥 Notes for Team
-
-- Do **NOT mix GUI and solving logic**
-- Always use the shared `Problem` and `Constraint` modules
-- Track metrics (time, nodes, etc.) for every solver
-- Follow the existing structure when adding new features
-
----
+1. Remove non-essential inline comments from source files.
+2. Keep only required directives or legally required headers.
+3. Keep meaningful docstrings for public behavior and interfaces.

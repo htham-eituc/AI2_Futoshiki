@@ -9,12 +9,12 @@ import pandas as pd
 import streamlit as st
 
 MUTED_CHART_COLORS = [
-    "#3b82f6",  # bright blue - primary
-    "#10b981",  # emerald green - success
-    "#f59e0b",  # amber - warning
-    "#8b5cf6",  # violet - accent
-    "#ec4899",  # pink - secondary
-    "#06b6d4",  # cyan - info
+    "#3b82f6",                         
+    "#10b981",                           
+    "#f59e0b",                   
+    "#8b5cf6",                   
+    "#ec4899",                    
+    "#06b6d4",               
 ]
 
 CHART_LAYOUT_BASE = {
@@ -131,7 +131,7 @@ def render_success_rate_chart(
         df: DataFrame with columns: algorithm, testcase, solved
         title: Chart title.
     """
-    # Calculate success rate per algorithm
+                                          
     success_df = df.groupby("algorithm").agg(
         total=("solved", "count"),
         solved=("solved", "sum"),
@@ -235,7 +235,7 @@ def render_summary_table(df: pd.DataFrame) -> None:
     Args:
         df: DataFrame with comparison results.
     """
-    # Calculate aggregate statistics per algorithm
+                                                  
     summary = df.groupby("algorithm").agg(
         avg_time=("elapsed_seconds", "mean"),
         total_nodes=("nodes_generated", "sum"),
@@ -253,7 +253,7 @@ def render_summary_table(df: pd.DataFrame) -> None:
         "Avg Constraint Checks",
     ]
     
-    # Format numeric columns
+                            
     summary["Avg Time (s)"] = summary["Avg Time (s)"].apply(lambda x: f"{x:.4f}")
     summary["Total Nodes"] = summary["Total Nodes"].apply(lambda x: f"{x:,.0f}")
     summary["Avg Backtracks"] = summary["Avg Backtracks"].apply(lambda x: f"{x:.1f}")

@@ -12,13 +12,13 @@ class Literal:
     def complement(self):
         return Literal(self.atom, not self.negated)
 
-# Convenience constructors
+                          
 def pos(atom) -> Literal:
     return Literal(atom, negated=False)
 
 def neg(atom) -> Literal:
     return Literal(atom, negated=True)
 
-# A clause is just a frozenset of Literals
+                                          
 def clause(*lits) -> frozenset:
     return frozenset(lits)

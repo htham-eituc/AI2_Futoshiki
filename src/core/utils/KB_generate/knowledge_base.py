@@ -3,14 +3,14 @@ from core.utils.KB_generate.clause import Literal, pos, neg
 class KnowledgeBase:
     def __init__(self, clauses: list, N: int):
         self.N        = N
-        self.clauses  = list(clauses)         # all CNF clauses
-        self.facts    = set()                 # known true literals
-        self.negated  = set()                 # known false atoms
+        self.clauses  = list(clauses)                          
+        self.facts    = set()                                      
+        self.negated  = set()                                    
 
     def add_fact(self, lit: Literal):
         """Assert a literal as definitely true."""
         self.facts.add(lit)
-        # immediately mark the complement as false
+                                                  
         self.negated.add(lit.atom if lit.negated else lit.atom)
 
     def is_true(self, lit: Literal) -> bool:
@@ -41,7 +41,7 @@ class KnowledgeBase:
                 new_clauses = []
                 for c in self.clauses:
                     if lit in c:
-                        changed = True        # clause satisfied, drop it
+                        changed = True                                   
                         continue
                     trimmed = c - {lit.complement()}
                     if trimmed != c:

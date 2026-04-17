@@ -3,46 +3,46 @@ import argparse
 import os
 import sys
 
-# Import solver for backtrack-based difficulty rating
+                                                     
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from solver import count_backtracks
 
-# ---------------------------------------------------------------------------
-# Difficulty thresholds (backtrack count bands)
-# ---------------------------------------------------------------------------
-# A puzzle is rated by how many backtracks the solver needs to find its solution.
-#   0 backtracks = solvable by pure constraint propagation (trivially easy)
-#  >20 backtracks = heavy trial-and-error required (hard)
-# Adjust these thresholds if puzzles feel too easy/hard for a given N.
+                                                                             
+                                               
+                                                                             
+                                                                                 
+                                                                           
+                                                         
+                                                                      
 
 DIFFICULTY_THRESHOLDS = {
     "easy":   (0, 50),
     "medium": (50, 500),
     "hard":   (500, float("inf")),
 }
-# For others: easy = 0-30, medium = 30-100, hard = 100+ backtracks.
-# For 9x9: easy = 0-50, medium = 50-500, hard = 500+ backtracks.
+                                                                   
+                                                                
 
-# Initial cell-keep probability per difficulty.
-# Controls how aggressively cells are stripped on each attempt.
-# The solver then rates the result — we retry if the backtrack count
-# doesn't fall in the target band.
+                                               
+                                                               
+                                                                    
+                                  
 DIFFICULTY_STRIP = {
     "easy":   0.6,
     "medium": 0.4,
     "hard":   0.2,
 }
 
-# Fixed constraint-keep probability regardless of difficulty.
-# Constraints narrow the solution space, so keeping ~50% is a neutral baseline.
+                                                             
+                                                                               
 CONSTRAINT_KEEP = 0.5
 
-MAX_ATTEMPTS = 1000  # Max retries before giving up on a difficulty target
+MAX_ATTEMPTS = 1000                                                       
 
 
-# ---------------------------------------------------------------------------
-# Latin square generation
-# ---------------------------------------------------------------------------
+                                                                             
+                         
+                                                                             
 
 def generate_latin_square(n):
     """Generate a random valid N×N Latin Square (values 1..N)."""
@@ -63,9 +63,9 @@ def generate_latin_square(n):
     return grid
 
 
-# ---------------------------------------------------------------------------
-# Constraint extraction
-# ---------------------------------------------------------------------------
+                                                                             
+                       
+                                                                             
 
 def extract_horizontal_constraints(grid, n):
     """
@@ -107,9 +107,9 @@ def apply_sparsity(constraints, keep_probability):
     ]
 
 
-# ---------------------------------------------------------------------------
-# Cell stripping
-# ---------------------------------------------------------------------------
+                                                                             
+                
+                                                                             
 
 def strip_grid_cells(grid, n, keep_probability):
     """Randomly set cells to 0 (empty) based on keep_probability."""
@@ -125,9 +125,9 @@ def strip_grid_cells(grid, n, keep_probability):
     return puzzle
 
 
-# ---------------------------------------------------------------------------
-# File writer
-# ---------------------------------------------------------------------------
+                                                                             
+             
+                                                                             
 
 def format_row(values):
     """Format a list of integers as a comma-separated string."""
@@ -148,9 +148,9 @@ def write_puzzle_file(filepath, n, puzzle_grid, h_constraints, v_constraints):
         f.write("\n".join(lines) + "\n")
 
 
-# ---------------------------------------------------------------------------
-# Generator
-# ---------------------------------------------------------------------------
+                                                                             
+           
+                                                                             
 
 def generate(n, difficulty="medium", seed=None, output_dir=".", filename=None):
     """
@@ -169,10 +169,10 @@ def generate(n, difficulty="medium", seed=None, output_dir=".", filename=None):
     low, high = DIFFICULTY_THRESHOLDS[difficulty]
     cell_keep = DIFFICULTY_STRIP[difficulty]
 
-    # Step 1: Generate a valid solution (done once, reused across attempts)
+                                                                           
     solution = generate_latin_square(n)
 
-    # Step 2: Extract full constraint sets from the solution
+                                                            
     full_h = extract_horizontal_constraints(solution, n)
     full_v = extract_vertical_constraints(solution, n)
 
@@ -183,22 +183,22 @@ def generate(n, difficulty="medium", seed=None, output_dir=".", filename=None):
     bt = -1
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
-        # Step 3: Randomly hide some constraints
+                                                
         h_constraints = apply_sparsity(full_h, CONSTRAINT_KEEP)
         v_constraints = apply_sparsity(full_v, CONSTRAINT_KEEP)
 
-        # Step 4: Strip grid cells
+                                  
         puzzle_grid = strip_grid_cells(solution, n, cell_keep)
 
-        # Step 5: Rate the puzzle — solver returns -1 if not uniquely solvable
+                                                                              
         bt = count_backtracks(n, puzzle_grid, h_constraints, v_constraints)
 
         if bt == -1:
-            continue  # Not uniquely solvable — retry
+            continue                                 
 
         if low <= bt <= high:
             actual_backtracks = bt
-            break  # Puzzle lands in the target difficulty band
+            break                                              
     else:
         print(
             f"Warning: could not reach {difficulty} difficulty in "
@@ -206,7 +206,7 @@ def generate(n, difficulty="medium", seed=None, output_dir=".", filename=None):
         )
         actual_backtracks = bt
 
-    # Step 6: Write to file
+                           
     if filename is None:
         filename = f"futoshiki_{n}x{n}_{difficulty}.txt"
     filepath = os.path.join(output_dir, filename)
@@ -224,9 +224,9 @@ def generate(n, difficulty="medium", seed=None, output_dir=".", filename=None):
     return filepath, solution
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
+                                                                             
+     
+                                                                             
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Futoshiki puzzle generator")

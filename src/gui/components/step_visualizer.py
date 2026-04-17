@@ -6,7 +6,7 @@ import time
 from typing import List, Optional, Set, Tuple
 import streamlit as st
 
-from ..service.visualization_service import VisualizationService, StepState
+from ..services.visualization_service import VisualizationService, StepState
 from .grid_display import render_grid
 from .step_controls import render_step_controls, render_speed_slider
 from .metrics_display import (
@@ -48,11 +48,11 @@ def render_step_visualization() -> None:
     """Render the step-by-step visualization screen."""
     _init_session_state()
     
-    # Header with back button
+                             
     col_back, col_title = st.columns([1, 5])
     with col_back:
         if st.button("← Back to Home"):
-            # Clear visualization state
+                                       
             for key in list(st.session_state.keys()):
                 if key.startswith("viz_"):
                     del st.session_state[key]
@@ -62,7 +62,7 @@ def render_step_visualization() -> None:
     with col_title:
         st.markdown("## Step-by-Step Visualization")
     
-    # Breadcrumb
+                
     st.markdown(
         '<p style="color: var(--text-muted); font-size: 14px;">Home > Step-by-Step Visualization</p>',
         unsafe_allow_html=True,
@@ -70,14 +70,14 @@ def render_step_visualization() -> None:
     
     st.markdown("---")
     
-    # Two-column layout
+                       
     left_col, right_col = st.columns([1, 2])
     
-    # Left column - Controls
+                            
     with left_col:
         st.markdown("### Configuration")
         
-        # Algorithm selection
+                             
         algorithms = VisualizationService.get_available_algorithms()
         if not algorithms:
             st.error("No algorithms found! Make sure solvers are registered.")
@@ -93,7 +93,7 @@ def render_step_visualization() -> None:
             key="algo_select",
         )
         
-        # Testcase selection
+                            
         testcases = VisualizationService.get_available_testcases()
         if not testcases:
             st.error("No test cases found!")
@@ -111,7 +111,7 @@ def render_step_visualization() -> None:
         
         st.markdown("---")
         
-        # Start/Reset button
+                            
         if st.session_state["viz_steps"]:
             if st.button("Load New Puzzle", use_container_width=True):
                 st.session_state["viz_steps"] = []
@@ -120,25 +120,25 @@ def render_step_visualization() -> None:
                 st.rerun()
         else:
             if st.button("Start Visualization", use_container_width=True, type="primary"):
-                # Validate selections
+                                     
                 if not selected_algo or not selected_testcase:
                     st.error("Please select both an algorithm and a test case.")
                 else:
                     with st.spinner("Loading puzzle and generating steps..."):
                         try:
-                            # Load puzzle
+                                         
                             filepath = testcase_paths[selected_testcase]
                             puzzle_data = VisualizationService.load_puzzle(filepath)
                             
-                            # Store given cells
+                                               
                             given_cells = _get_given_cells(puzzle_data.grid, puzzle_data.size)
                             
-                            # Generate all steps
+                                                
                             steps = list(VisualizationService.run_algorithm_steps(
                                 selected_algo, puzzle_data
                             ))
                             
-                            # Store in session state
+                                                    
                             st.session_state["viz_algorithm"] = selected_algo
                             st.session_state["viz_testcase"] = selected_testcase
                             st.session_state["viz_puzzle_data"] = puzzle_data
@@ -151,7 +151,7 @@ def render_step_visualization() -> None:
                         except Exception as e:
                             st.error(f"Error loading puzzle: {e}")
         
-        # Speed control (only when visualization is active)
+                                                           
         if st.session_state["viz_steps"]:
             st.markdown("---")
             st.markdown("### Playback Speed")
@@ -162,10 +162,10 @@ def render_step_visualization() -> None:
                 key="speed_control",
             )
     
-    # Right column - Visualization
+                                  
     with right_col:
         if not st.session_state["viz_steps"]:
-            # Show placeholder with friendly empty state
+                                                        
             st.markdown(
                 """
                 <div class="empty-state">
@@ -178,16 +178,16 @@ def render_step_visualization() -> None:
                 unsafe_allow_html=True,
             )
         else:
-            # Get current step
+                              
             steps = st.session_state["viz_steps"]
             current_idx = st.session_state["viz_current_step"]
             current_step: StepState = steps[current_idx]
             puzzle_data = st.session_state["viz_puzzle_data"]
             
-            # Algorithm badge
+                             
             render_algorithm_badge(st.session_state["viz_algorithm"])
             
-            # Step controls
+                           
             can_previous = current_idx > 0
             can_next = current_idx < len(steps) - 1
             
@@ -199,7 +199,7 @@ def render_step_visualization() -> None:
                 total_steps=len(steps) - 1,
             )
             
-            # Handle control actions
+                                    
             if controls["action"] == "reset":
                 st.session_state["viz_current_step"] = 0
                 st.session_state["viz_is_playing"] = False
@@ -219,10 +219,10 @@ def render_step_visualization() -> None:
                 st.session_state["viz_is_playing"] = False
                 st.rerun()
             
-            # Step message
+                          
             render_step_message(current_step.message)
             
-            # Grid display
+                          
             st.markdown("### Puzzle Grid")
             render_grid(
                 grid=current_step.grid,
@@ -235,20 +235,20 @@ def render_step_visualization() -> None:
                 given_cells=st.session_state["viz_given_cells"],
             )
             
-            # Metrics
+                     
             render_metrics(
                 metrics=current_step.metrics,
                 is_live=not current_step.is_complete,
             )
             
-            # Completion status
+                               
             if current_step.is_complete:
                 render_final_status(
                     is_solved=current_step.is_solved,
                     message=current_step.message,
                 )
             
-            # Auto-play logic
+                             
             if st.session_state["viz_is_playing"] and can_next:
                 time.sleep(st.session_state["viz_speed"] / 1000.0)
                 st.session_state["viz_current_step"] += 1

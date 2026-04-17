@@ -2,14 +2,14 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Val:
-    i: int   # row    (1..N)
-    j: int   # col    (1..N)
-    v: int   # value  (1..N)
+    i: int                  
+    j: int                  
+    v: int                  
 
 @dataclass(frozen=True)
 class LessH:
     i: int
-    j: int   # cell(i,j) < cell(i,j+1)
+    j: int                            
 
 @dataclass(frozen=True)
 class GreaterH:
@@ -19,7 +19,7 @@ class GreaterH:
 @dataclass(frozen=True)
 class LessV:
     i: int
-    j: int   # cell(i,j) < cell(i+1,j)
+    j: int                            
 
 @dataclass(frozen=True)
 class GreaterV:
