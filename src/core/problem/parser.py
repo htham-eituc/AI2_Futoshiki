@@ -89,35 +89,15 @@ class ParserFactory:
     """
     @classmethod
     def get_standard_data(cls, source: str) -> FutoshikiData:
-        """
-        Instantiates TextParserAdapter and returns the `FutoshikiData` model
-        ready to be passed to A*, Backtracking, or FOL solvers.
-        
-        Args:
-            source: Filepath to the text file containing the puzzle
-            
-        Returns:
-            FutoshikiData object with parsed puzzle data
-        """
         adapter = TextParserAdapter()
         return adapter.parse(source)
 
 
 class AlgorithmAdapter:
-    """
-    Adapter bridging `FutoshikiData` into algorithm-specific domains.
-    Each algorithm might require a very different initial setup or structure.
-    """
     def __init__(self, data: FutoshikiData):
         self.data = data
 
-    def to_astar(self) -> dict:
-        """
-        Formats the puzzle data specifically for the A* search algorithm.
-        Returns the Initial State node structure or dictionary required by A*.
-        """
-                                                                                             
-                                                                                                  
+    def to_astar(self) -> dict:                                                                           
         return {
             "initial_grid": self.data.grid,
             "h_constraints": self.data.h_constraints,
@@ -126,22 +106,13 @@ class AlgorithmAdapter:
         }
 
     def to_fol(self) -> List[str]:
-        """
-        Converts FutoshikiData into a grounded CNF KnowledgeBase
-        ready for forward chaining, backward chaining, or A*.
-        """
         puzzle  = futoshiki_to_puzzle_dict(self.data)
         clauses = ground_kb(self.data.size, puzzle)
         kb      = KnowledgeBase(clauses, self.data.size)
         kb.simplify()                                                  
         return kb
 
-    def to_backtrack(self) -> dict:
-        """
-        Formats the puzzle data specifically for Backtracking (CSP).
-        Returns domain configurations, variables, and constraints for constraint satisfaction.
-        """
-                                                    
+    def to_backtrack(self) -> dict:                                     
         domains = {}
         for r in range(self.data.size):
             for c in range(self.data.size):
@@ -186,7 +157,6 @@ def futoshiki_to_puzzle_dict(data: FutoshikiData) -> dict:
         greater_h = set()
         less_v    = set()
         greater_v = set()
-
                                                          
         for r in range(N):
             for c in range(N):
@@ -194,8 +164,6 @@ def futoshiki_to_puzzle_dict(data: FutoshikiData) -> dict:
                 if v != 0:
                     given[(r + 1, c + 1)] = v
 
-                                                                               
-                                                          
         for r in range(N):
             for c in range(N - 1):
                 val = data.h_constraints[r][c]
@@ -203,8 +171,6 @@ def futoshiki_to_puzzle_dict(data: FutoshikiData) -> dict:
                 if val ==  1: less_h.add((i, j))
                 if val == -1: greater_h.add((i, j))
 
-                                                                             
-                                                             
         for r in range(N - 1):
             for c in range(N):
                 val = data.v_constraints[r][c]

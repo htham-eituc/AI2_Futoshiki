@@ -1,10 +1,3 @@
-"""
-Visualization Service - Bridge between GUI and Core solvers.
-
-This service encapsulates all interactions with the core module,
-providing a clean interface for the GUI components.
-"""
-
 from __future__ import annotations
 
 import sys
@@ -19,32 +12,19 @@ SRC_DIR = Path(__file__).resolve().parents[2]
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from core.utils.step_state import StepState
 from core.problem.parser import FutoshikiData, ParserFactory, AlgorithmAdapter
 from core.solvers.base_solver import SolverFactory
-
                                  
 import core.solvers.bruteforce
 import core.solvers.astar
 import core.solvers.forward_chaining
 import core.solvers.backward_chaining
-
-@dataclass
-class StepState:
-    """Represents the state at a single algorithm step."""
-    step_number: int
-    grid: List[List[int]]
-    active_cell: Optional[Tuple[int, int]] = None
-    changed_cell: Optional[Tuple[int, int]] = None
-    conflict_cells: List[Tuple[int, int]] = field(default_factory=list)
-    message: str = ""
-    metrics: Dict[str, Any] = field(default_factory=dict)
-    is_complete: bool = False
-    is_solved: bool = False
+import core.solvers.backtracking
 
 
 @dataclass
 class ComparisonResult:
-    """Results from running a single algorithm on a single testcase."""
     algorithm: str
     testcase: str
     solved: bool
@@ -60,10 +40,8 @@ class ComparisonResult:
 class ExperimentVisualizationError(Exception):
     """Raised when experiment visualization generation fails."""
 
-
 @dataclass
 class ExperimentVisualizationProgress:
-    """Represents one generated chart step during streaming visualization."""
     step: int
     total: int
     chart_name: str
@@ -72,7 +50,6 @@ class ExperimentVisualizationProgress:
 
 
 def _metrics_to_dict(metrics: Any) -> Dict[str, Any]:
-    """Normalize metrics to dict regardless of whether it's a dict or SolverMetrics object."""
     if metrics is None:
         return {}
     if isinstance(metrics, dict):
@@ -82,13 +59,10 @@ def _metrics_to_dict(metrics: Any) -> Dict[str, Any]:
     return {}
 
 
-class VisualizationService:
-    """Service layer for algorithm visualization."""
-
-                                                                  
+class VisualizationService:                                                                  
     TESTCASE_DIRS = [
         "src/test_generate",
-        "data/inputs",
+        "Inputs",
     ]
 
                                    
@@ -112,22 +86,10 @@ class VisualizationService:
 
     @classmethod
     def get_available_algorithms(cls) -> List[str]:
-        """
-        Get list of all registered solver algorithms.
-
-        Returns:
-            List of algorithm names sorted alphabetically.
-        """
         return sorted(SolverFactory.registered_solvers().keys())
 
     @classmethod
     def get_available_testcases(cls) -> List[Dict[str, str]]:
-        """
-        Scan testcase directories for puzzle files.
-
-        Returns:
-            List of dicts with 'name' and 'path' keys for each testcase.
-        """
         testcases = []
 
         for dir_path in cls.TESTCASE_DIRS:
@@ -145,15 +107,6 @@ class VisualizationService:
 
     @classmethod
     def load_puzzle(cls, filepath: str) -> FutoshikiData:
-        """
-        Load and parse a puzzle file.
-
-        Args:
-            filepath: Path to the puzzle file.
-
-        Returns:
-            Parsed FutoshikiData object.
-        """
         return ParserFactory.get_standard_data(filepath)
 
     @classmethod
@@ -162,16 +115,6 @@ class VisualizationService:
         algorithm_name: str,
         puzzle_data: FutoshikiData,
     ) -> Generator[StepState, None, None]:
-        """
-        Run algorithm step-by-step, yielding state at each step.
-
-        Args:
-            algorithm_name: Name of the registered algorithm to use.
-            puzzle_data: Parsed puzzle data.
-
-        Yields:
-            StepState objects for each algorithm step.
-        """
                                                      
         yield StepState(
             step_number=0,
@@ -183,13 +126,13 @@ class VisualizationService:
                 "constraint_checks": 0,
                 "assignments": 0,
                 "backtracks": 0,
+                "elapsed_seconds": 0,
             },
         )
 
         if algorithm_name == "bruteforce":
-            # Backtracking: inline step-by-step simulation
             solver = SolverFactory.create(algorithm_name, puzzle_data)
-            yield from cls._run_backtracking_steps(solver, puzzle_data)
+            yield from cls._run_bruteforce_steps(solver, puzzle_data)
 
         elif algorithm_name == "astar":
                                                                              
@@ -213,12 +156,14 @@ class VisualizationService:
             yield from solver.solve_steps()
 
         else:
-                                                                       
-                                                                           
+                                                                             
             solver = SolverFactory.create(algorithm_name, puzzle_data)
             result = solver.solve()
             metrics = _metrics_to_dict(result.get("metrics", {}))
             solution = result.get("solution")
+
+            if "elapsed_seconds" not in metrics:
+                metrics["elapsed_seconds"] = 0
 
             if solution:
                 yield StepState(
@@ -237,11 +182,7 @@ class VisualizationService:
                     metrics=metrics,
                     is_complete=True,
                     is_solved=False,
-                )
-
-                                                                        
-                        
-                                                                        
+                )                              
 
     @classmethod
     def _replay_astar_steps(
@@ -249,16 +190,6 @@ class VisualizationService:
         result: Dict[str, Any],
         puzzle_data: FutoshikiData,
     ) -> Generator[StepState, None, None]:
-        """
-        Convert A* snapshots stored in metrics.extra into StepState objects.
-
-        A* stores each expand/assign/prune event as:
-            metrics["extra"]["snap_N"] = {
-                "step": N,
-                "grid": List[List[int]],
-                "label": str,
-            }
-        """
         metrics_raw = result.get("metrics", {})
         metrics = _metrics_to_dict(metrics_raw)
         solution = result.get("solution")
@@ -291,9 +222,7 @@ class VisualizationService:
                     is_complete=True,
                     is_solved=False,
                 )
-            return
-
-                                                                  
+            return                                    
                                                                                     
         total_expanded = metrics.get("nodes_expanded", 0)
         total_generated = metrics.get("nodes_generated", 0)
@@ -311,12 +240,9 @@ class VisualizationService:
             is_pruned = "PRUNED" in label
             is_assign = label.startswith("assign")
 
-                                                               
-                                                                        
             active_cell = _parse_cell_from_label(label)
             changed_cell = active_cell if is_assign else None
             conflict_cells = [active_cell] if is_pruned and active_cell else []
-
                                                                        
             frac = (i + 1) / n_snaps
             partial_metrics = {
@@ -368,20 +294,16 @@ class VisualizationService:
                 metrics=final_metrics,
                 is_complete=True,
                 is_solved=False,
-            )
-
-                                                                        
-                                      
-                                                                        
+            )                                                               
 
     @classmethod
-    def _run_backtracking_steps(
+    def _run_bruteforce_steps(
         cls,
         solver: Any,
         puzzle_data: FutoshikiData,
     ) -> Generator[StepState, None, None]:
         """
-        Generate step-by-step states for backtracking algorithm.
+        Generate step-by-step states for bruteforce algorithm.
         Inline simulation — does not call solver.solve().
         """
         n = puzzle_data.size
@@ -400,17 +322,22 @@ class VisualizationService:
                 step_number=step,
                 grid=grid,
                 message="Puzzle already solved",
+                metrics={"elapsed_seconds": 0},
                 is_complete=True,
                 is_solved=True,
             )
             return
 
+        import time
+        start_time = time.time()
+        
         metrics = {
             "nodes_generated": 0,
             "nodes_expanded": 0,
             "constraint_checks": 0,
             "assignments": 0,
             "backtracks": 0,
+            "elapsed_seconds": 0,
         }
 
         def is_valid(row: int, col: int, val: int) -> bool:
@@ -482,6 +409,7 @@ class VisualizationService:
                 if is_valid(row, col, val):
                     grid[row][col] = val
                     metrics["assignments"] += 1
+                    metrics["elapsed_seconds"] = time.time() - start_time
 
                     yield StepState(
                         step_number=step,
@@ -510,6 +438,7 @@ class VisualizationService:
             if not found_valid:
                 grid[row][col] = 0
                 metrics["backtracks"] += 1
+                metrics["elapsed_seconds"] = time.time() - start_time
 
                 yield StepState(
                     step_number=step,
@@ -526,6 +455,7 @@ class VisualizationService:
                     r2, c2 = empty_cells[cell_idx]
                     grid[r2][c2] = 0
 
+        metrics["elapsed_seconds"] = time.time() - start_time
         yield StepState(
             step_number=step,
             grid=[r[:] for r in grid],
@@ -533,11 +463,7 @@ class VisualizationService:
             metrics=dict(metrics),
             is_complete=True,
             is_solved=True,
-        )
-
-                                                                        
-                      
-                                                                        
+        )                                                              
 
     @classmethod
     def run_batch_comparison(
@@ -545,17 +471,6 @@ class VisualizationService:
         algorithms: List[str],
         testcases: Optional[List[Dict[str, str]]] = None,
     ) -> List[ComparisonResult]:
-        """
-        Run multiple algorithms on multiple testcases for comparison.
-
-        Args:
-            algorithms: List of algorithm names to compare.
-            testcases: List of testcase dicts with 'name' and 'path'.
-                      If None, uses all available testcases.
-
-        Returns:
-            List of ComparisonResult objects.
-        """
         if testcases is None:
             testcases = cls.get_available_testcases()
 
@@ -835,17 +750,6 @@ class VisualizationService:
         output_dir: Optional[Path] = None,
         selected_algorithms: Optional[List[str]] = None,
     ) -> List[Path]:
-        """
-        Generate experiment chart images from experiment.csv.
-
-        Args:
-            csv_path: CSV input path. Defaults to <project_root>/experiment.csv.
-            output_dir: Output directory. Defaults to <project_root>/charts.
-            selected_algorithms: Optional algorithm labels to include.
-
-        Returns:
-            Ordered list of generated chart paths.
-        """
         chart_paths = [
             progress.chart_path
             for progress in cls.stream_experiment_visualizations(
@@ -868,14 +772,6 @@ class VisualizationService:
                                                                              
 
 def _format_astar_label(label: str) -> str:
-    """
-    Convert raw A* snapshot label into a human-friendly message.
-
-    Input examples:
-        "assign (0,7)=9 g=32 h=49"       → "Assigned 9 to cell (row 1, col 8)  |  f=81  [g=32, h=49]"
-        "PRUNED (0,7)=9"                  → "Pruned value 9 at cell (row 1, col 8) — no valid domain"
-        "expand g=32 h=49 f=81"           → "Expanding node  |  f=81  [g=32, h=49]"
-    """
     import re
 
                                     

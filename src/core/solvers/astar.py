@@ -77,7 +77,6 @@ class AStarSolver(BaseSolver):
             self._v_con        = adapted["v_constraints"]
 
         elif isinstance(problem, dict):
-            # Backward compatibility (your old test_solver)
             self._n            = problem["grid_size"]
             self._initial_grid = problem["initial_grid"]
             self._h_con        = problem["h_constraints"]
@@ -222,11 +221,6 @@ class AStarSolver(BaseSolver):
         return None                                                                  
 
 def _signature(domains: Domain) -> frozenset:
-    """
-    Hash chỉ các cell đã gán (singleton).
-    Nhanh hơn 2× so với hash toàn bộ domain (benchmark: 7µs vs 15µs).
-    Đủ để dedup trong thực tế — correctness đảm bảo bởi is_goal().
-    """
     return frozenset(
         (cell, next(iter(vals)))
         for cell, vals in domains.items()

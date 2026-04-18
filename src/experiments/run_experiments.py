@@ -18,25 +18,30 @@ from typing import Dict, List, Optional, Tuple
 import csv
 import psutil
 import os
+import importlib
 
 current_dir = Path(__file__).parent
 src_dir = current_dir.parent
 sys.path.insert(0, str(src_dir))
 
+# Dynamically import all solver modules to register them
+solver_modules = ['astar', 'backtracking', 'backward_chaining', 'bruteforce', 'forward_chaining']
+for mod_name in solver_modules:
+    try:
+        importlib.import_module(f'core.solvers.{mod_name}')
+    except ImportError:
+        pass  # Skip if module doesn't exist
+
 from core.problem.parser import ParserFactory, FutoshikiData, AlgorithmAdapter
 from core.solvers.base_solver import SolverFactory, BaseSolver
 from core.utils.metrics import SolverMetrics, MetricsStore
-
-                                     
-from core.solvers import astar, backtracking
-
 
 def get_puzzle_files(puzzle_dir: Path) -> List[Path]:
     """Get all .txt puzzle files from directory, sorted by name."""
     if not puzzle_dir.exists():
         raise FileNotFoundError(f"Puzzle directory not found: {puzzle_dir}")
     
-    puzzle_files = sorted(puzzle_dir.glob("futoshiki_*.txt"))
+    puzzle_files = sorted(puzzle_dir.glob("input_*.txt"))
                                                
     puzzle_files = [p for p in puzzle_files if "no_solve" not in p.name]
     
@@ -65,23 +70,47 @@ def parse_puzzle_metadata(puzzle_path: Path) -> Dict[str, str]:
     return metadata
 
 
+def format_solution(grid: List[List[int]], h_constraints: List[List[int]], v_constraints: List[List[int]]) -> str:
+    """Format the solved grid with inequality signs."""
+    n = len(grid)
+    lines = []
+    
+    for r in range(n):
+        row_parts = []
+        for c in range(n):
+            row_parts.append(str(grid[r][c]))
+            if c < n - 1:
+                if h_constraints[r][c] == 1:
+                    row_parts.append("<")
+                elif h_constraints[r][c] == -1:
+                    row_parts.append(">")
+                else:
+                    row_parts.append(" ")
+        lines.append(" ".join(row_parts))
+    
+    # Insert vertical constraint lines
+    for r in range(n - 1):
+        v_parts = []
+        for c in range(n):
+            if v_constraints[r][c] == 1:
+                v_parts.append("^")
+            elif v_constraints[r][c] == -1:
+                v_parts.append("v")
+            else:
+                v_parts.append(" ")
+            if c < n - 1:
+                v_parts.append(" ")
+        lines.insert(2 * r + 1, " ".join(v_parts))
+    
+    return "\n".join(lines)
+
+
 def run_solver_with_timeout(
     solver_name: str,
     puzzle_data: FutoshikiData,
     puzzle_metadata: Dict[str, str],
     timeout: float = 300.0
-) -> Optional[SolverMetrics]:
-    """Run a single solver on a puzzle and collect metrics.
-    
-    Args:
-        solver_name: Name of the solver (e.g., 'backtracking', 'astar')
-        puzzle_data: Parsed puzzle data
-        puzzle_metadata: Metadata extracted from filename
-        timeout: Maximum time in seconds
-        
-    Returns:
-        SolverMetrics object or None if solver failed
-    """
+) -> Tuple[Optional[SolverMetrics], Optional[List[List[int]]]]:
     print(f"  Running {solver_name}...", end=" ", flush=True)
     
     try:
@@ -120,22 +149,29 @@ def run_solver_with_timeout(
         if elapsed > timeout:
             solver.metrics.mark_timeout()
             print(f"TIMEOUT ({elapsed:.1f}s)")
-            return solver.metrics
+            return solver.metrics, None
         
                           
         mem_after = process.memory_info().rss / 1024      
         mem_used = max(0, mem_after - mem_before)
         solver.metrics.add_extra("memory_kb", round(mem_used, 2))
         
+        # Extract solution
+        if isinstance(result, dict):
+            solution = result.get("solution")
+        elif isinstance(result, list):
+            solution = result
+        else:
+            solution = None
                                  
-        if result is not None:
+        if solution is not None:
             solver.metrics.mark_solved(True)
             print(f"✓ ({elapsed:.3f}s, {solver.metrics.nodes_expanded} nodes)")
         else:
             solver.metrics.mark_solved(False)
             print(f"✗ No solution ({elapsed:.3f}s)")
         
-        return solver.metrics
+        return solver.metrics, solution
         
     except Exception as e:
         print(f"ERROR: {str(e)}")
@@ -145,7 +181,7 @@ def run_solver_with_timeout(
         metrics.mark_error(str(e))
         metrics.add_extra("grid_size", puzzle_metadata["size"])
         metrics.add_extra("difficulty", puzzle_metadata["difficulty"])
-        return metrics
+        return metrics, None
 
 
 def run_experiments(
@@ -154,21 +190,10 @@ def run_experiments(
     timeout: float = 300.0,
     solvers: Optional[List[str]] = None
 ) -> None:
-    """Run all experiments and save results to CSV.
-    
-    Args:
-        puzzle_dir: Directory containing puzzle files
-        output_path: Path to output CSV file
-        timeout: Maximum time per solver run in seconds
-        solvers: List of solver names to run (None = default solvers, excluding backward_chaining)
-    """
-                           
     available_solvers = list(SolverFactory.registered_solvers().keys())
     
-    if solvers is None:
-                                                           
-                                                                      
-        solvers_to_run = [s for s in available_solvers if s != 'backward_chaining']
+    if solvers is None:                                                 
+        solvers_to_run = [s for s in available_solvers]
     else:
         solvers_to_run = [s.lower() for s in solvers if s.lower() in available_solvers]
     
@@ -185,10 +210,8 @@ def run_experiments(
     print(f"Found {len(puzzle_files)} puzzles")
     print()
     
-                   
     store = MetricsStore()
     
-                     
     for i, puzzle_path in enumerate(puzzle_files, 1):
         print(f"[{i}/{len(puzzle_files)}] {puzzle_path.name}")
         
@@ -202,7 +225,7 @@ def run_experiments(
         
                          
         for solver_name in solvers_to_run:
-            metrics = run_solver_with_timeout(
+            metrics, solution = run_solver_with_timeout(
                 solver_name,
                 puzzle_data,
                 metadata,
@@ -211,6 +234,15 @@ def run_experiments(
             
             if metrics:
                 store.add(metrics)
+            
+            if solution is not None:
+                output_name = metadata["puzzle_id"].replace("input_", "output_")
+                output_dir = Path("Outputs") / solver_name
+                output_dir.mkdir(parents=True, exist_ok=True)
+                output_file = output_dir / f"{output_name}.txt"
+                formatted = format_solution(solution, puzzle_data.h_constraints, puzzle_data.v_constraints)
+                output_file.write_text(formatted)
+                print(f"Solution for {output_name} by {solver_name}:\n{formatted}\n")
         
         print()
     
@@ -299,7 +331,7 @@ def main():
         "--puzzles-dir",
         type=Path,
         default=None,
-        help="Directory containing puzzle files (default: src/test_generate)"
+        help="Directory containing puzzle files (default: Output/)"
     )
     parser.add_argument(
         "--output",
@@ -324,7 +356,7 @@ def main():
     
     if args.puzzles_dir is None:
         script_dir = Path(__file__).parent
-        puzzles_dir = script_dir.parent / "test_generate"
+        puzzles_dir = script_dir.parent.parent / "Inputs"
     else:
         puzzles_dir = args.puzzles_dir
     

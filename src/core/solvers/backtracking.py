@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .base_solver import BaseSolver, SolverFactory
@@ -13,6 +15,8 @@ from ..heuristics.ac3 import (
     lcv_order,
     domains_to_grid,
 )
+
+from ..utils.step_state import StepState
 
 @SolverFactory.register("backtracking")
 class BacktrackingSolver(BaseSolver):
@@ -165,3 +169,145 @@ class BacktrackingSolver(BaseSolver):
             "solution": solution,
             "metrics": self.metrics.to_dict(),
         }
+
+    def solve_steps(self):
+        """Generate step-by-step states for backtracking algorithm with heuristics."""
+        if StepState is None:
+            raise ImportError("StepState not available for visualization")
+
+        import time
+        start_time = time.time()
+        
+        n = self.n
+        grid = [row[:] for row in self.grid]
+        step = 1
+
+        # Initial state
+        yield StepState(
+            step_number=step,
+            grid=[row[:] for row in grid],
+            message="Initial puzzle state",
+            metrics={
+                "nodes_generated": 0,
+                "nodes_expanded": 0,
+                "constraint_checks": 0,
+                "assignments": 0,
+                "backtracks": 0,
+                "elapsed_seconds": 0,
+            },
+        )
+        step += 1
+
+        # Build initial domains
+        domains = build_initial_domains(n, grid)
+        domains = run_ac3(domains, n, self.h_constraints, self.v_constraints)
+
+        if domains is None:
+            yield StepState(
+                step_number=step,
+                grid=[row[:] for row in grid],
+                message="Initial AC-3 failed - no solution possible",
+                metrics={
+                    "nodes_generated": 0,
+                    "nodes_expanded": 0,
+                    "constraint_checks": 0,
+                    "assignments": 0,
+                    "backtracks": 0,
+                    "elapsed_seconds": time.time() - start_time,
+                },
+                is_complete=True,
+                is_solved=False,
+            )
+            return
+
+        # Iterative backtracking with stack, choosing MRV cell at each step
+        stack = [domains]
+        metrics = {
+            "nodes_generated": 0,
+            "nodes_expanded": 0,
+            "constraint_checks": 0,
+            "assignments": 0,
+            "backtracks": 0,
+        }
+
+        while stack:
+            current_domains = stack[-1]
+
+            # Find candidates: cells with domain size > 1
+            candidates = [cell for cell in current_domains if len(current_domains[cell]) > 1]
+            if not candidates:
+                # Solution found
+                solution_grid = domains_to_grid(current_domains, n)
+                metrics["elapsed_seconds"] = time.time() - start_time
+                yield StepState(
+                    step_number=step,
+                    grid=solution_grid,
+                    message="Solution found!",
+                    metrics=dict(metrics),
+                    is_complete=True,
+                    is_solved=True,
+                )
+                return  # Stop after finding the first solution
+
+            # Select MRV cell
+            cell = min(candidates, key=lambda c: len(current_domains[c]))
+            metrics["nodes_expanded"] += 1
+
+            # Get values in LCV order
+            values = lcv_order(cell, current_domains, n, self.h_constraints, self.v_constraints)
+            assigned = False
+
+            for value in values:
+                metrics["nodes_generated"] += 1
+
+                # Try assignment
+                new_domains = {k: set(v) for k, v in current_domains.items()}
+                new_domains[cell] = {value}
+                metrics["assignments"] += 1
+
+                # Run AC-3
+                pruned = run_ac3(new_domains, n, self.h_constraints, self.v_constraints)
+
+                if pruned is not None:
+                    # Successful assignment
+                    current_grid = domains_to_grid(new_domains, n)
+                    metrics["elapsed_seconds"] = time.time() - start_time
+                    yield StepState(
+                        step_number=step,
+                        grid=current_grid,
+                        active_cell=cell,
+                        changed_cell=cell,
+                        message=f"Assigned {value} to cell ({cell[0]}, {cell[1]})",
+                        metrics=dict(metrics),
+                    )
+                    step += 1
+
+                    # Push next state
+                    stack.append(pruned)
+                    assigned = True
+                    break
+
+            if not assigned:
+                # Backtrack
+                metrics["elapsed_seconds"] = time.time() - start_time
+                yield StepState(
+                    step_number=step,
+                    grid=domains_to_grid(current_domains, n),
+                    conflict_cells=[cell],
+                    message=f"Backtracking from cell ({cell[0]}, {cell[1]}) - no valid values",
+                    metrics=dict(metrics),
+                )
+                step += 1
+                metrics["backtracks"] += 1
+                stack.pop()
+
+        # No solution
+        metrics["elapsed_seconds"] = time.time() - start_time
+        yield StepState(
+            step_number=step,
+            grid=[row[:] for row in grid],
+            message="No solution found",
+            metrics=dict(metrics),
+            is_complete=True,
+            is_solved=False,
+        )
