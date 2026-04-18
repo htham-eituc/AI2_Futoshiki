@@ -17,13 +17,13 @@ class FutoshikiData:
     def __init__(self, size: int, grid: List[List[int]], 
                  h_constraints: List[List[int]], v_constraints: List[List[int]]):
         self.size = size
-        # Expected grid: size x size matrix where 0 = empty
+                                                           
         self.grid = grid
         
-        # h_constraints: size x (size-1). 1 means left < right, -1 means left > right, 0 means no constraint
+                                                                                                            
         self.h_constraints = h_constraints
         
-        # v_constraints: (size-1) x size. 1 means top < bottom, -1 means top > bottom, 0 means no constraint
+                                                                                                            
         self.v_constraints = v_constraints
 
     def __str__(self):
@@ -59,21 +59,21 @@ class TextParserAdapter(BaseParser):
         n = int(lines[idx])
         idx += 1
 
-        # Parse Grid
+                    
         grid = []
         for _ in range(n):
             row = [int(v.strip()) for v in lines[idx].split(",")]
             grid.append(row)
             idx += 1
 
-        # Parse Horizontal constraints
+                                      
         h_constraints = []
         for _ in range(n):
             row = [int(v.strip()) for v in lines[idx].split(",")]
             h_constraints.append(row)
             idx += 1
 
-        # Parse Vertical constraints
+                                    
         v_constraints = []
         for _ in range(n - 1):
             row = [int(v.strip()) for v in lines[idx].split(",")]
@@ -116,8 +116,8 @@ class AlgorithmAdapter:
         Formats the puzzle data specifically for the A* search algorithm.
         Returns the Initial State node structure or dictionary required by A*.
         """
-        # TODO: Adjust this to return exactly what your A* algorithm's init function expects.
-        # Commonly, A* just needs an initial State node object and a Problem configuration object.
+                                                                                             
+                                                                                                  
         return {
             "initial_grid": self.data.grid,
             "h_constraints": self.data.h_constraints,
@@ -133,7 +133,7 @@ class AlgorithmAdapter:
         puzzle  = futoshiki_to_puzzle_dict(self.data)
         clauses = ground_kb(self.data.size, puzzle)
         kb      = KnowledgeBase(clauses, self.data.size)
-        kb.simplify()   # run initial unit propagation from given clues
+        kb.simplify()                                                  
         return kb
 
     def to_backtrack(self) -> dict:
@@ -141,7 +141,7 @@ class AlgorithmAdapter:
         Formats the puzzle data specifically for Backtracking (CSP).
         Returns domain configurations, variables, and constraints for constraint satisfaction.
         """
-        # TODO: Setup CSP variables domains (1 to N)
+                                                    
         domains = {}
         for r in range(self.data.size):
             for c in range(self.data.size):
@@ -187,15 +187,15 @@ def futoshiki_to_puzzle_dict(data: FutoshikiData) -> dict:
         less_v    = set()
         greater_v = set()
 
-        # Grid: convert 0-indexed (r,c) → 1-indexed (i,j)
+                                                         
         for r in range(N):
             for c in range(N):
                 v = data.grid[r][c]
                 if v != 0:
                     given[(r + 1, c + 1)] = v
 
-        # Horizontal constraints: data.h_constraints[r][c] covers col c and c+1
-        # In 1-indexed terms: row i, between col j and j+1
+                                                                               
+                                                          
         for r in range(N):
             for c in range(N - 1):
                 val = data.h_constraints[r][c]
@@ -203,8 +203,8 @@ def futoshiki_to_puzzle_dict(data: FutoshikiData) -> dict:
                 if val ==  1: less_h.add((i, j))
                 if val == -1: greater_h.add((i, j))
 
-        # Vertical constraints: data.v_constraints[r][c] covers row r and r+1
-        # In 1-indexed terms: between row i and i+1, at col j
+                                                                             
+                                                             
         for r in range(N - 1):
             for c in range(N):
                 val = data.v_constraints[r][c]

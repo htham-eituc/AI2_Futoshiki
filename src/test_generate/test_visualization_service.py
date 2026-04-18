@@ -12,7 +12,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from gui.service.visualization_service import (  # noqa: E402
+from gui.services.visualization_service import (              
     ExperimentVisualizationError,
     VisualizationService,
 )

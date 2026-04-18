@@ -30,9 +30,9 @@ from typing import Dict, List, Optional, Set, Tuple
 Cell   = Tuple[int, int]
 Domain = Dict[Cell, Set[int]]
 
-# ---------------------------------------------------------------------------
-# Constraint helpers
-# ---------------------------------------------------------------------------
+                                                                             
+                    
+                                                                             
 
 def build_ineq_map(
     n: int,
@@ -79,9 +79,9 @@ def build_peers_map(n: int) -> Dict[Cell, List[Cell]]:
     return peers_map
 
 
-# ---------------------------------------------------------------------------
-# Domain initialisation
-# ---------------------------------------------------------------------------
+                                                                             
+                       
+                                                                             
 
 def build_initial_domains(n: int, grid: List[List[int]]) -> Domain:
     domains: Domain = {}
@@ -92,9 +92,9 @@ def build_initial_domains(n: int, grid: List[List[int]]) -> Domain:
     return domains
 
 
-# ---------------------------------------------------------------------------
-# h2 heuristic
-# ---------------------------------------------------------------------------
+                                                                             
+              
+                                                                             
 
 def compute_heuristic(domains: Domain) -> float:
     """h2 = Σ (|domain(cell)| - 1). inf nếu có domain rỗng."""
@@ -119,9 +119,9 @@ def compute_heuristic_ineq(
     return compute_heuristic(domains)
 
 
-# ---------------------------------------------------------------------------
-# Variable / value ordering
-# ---------------------------------------------------------------------------
+                                                                             
+                           
+                                                                             
 
 def select_mrv_cell(domains: Domain) -> Optional[Cell]:
     """MRV: pick unassigned cell with smallest domain (> 1)."""
@@ -160,7 +160,7 @@ def select_mrv_cell_ineq(
             else:
                 effective = {v for v in effective if v > nb_val}
             if not effective:
-                return cell   # fail-first
+                return cell               
 
         size = len(effective)
         if size < best_size:
@@ -203,7 +203,7 @@ def lcv_order_ineq(
     """
     r, c = cell
 
-    # Lọc effective domain
+                          
     effective = set(domains[cell])
     for neighbour, sign in ineq_map.get(cell, []):
         nb_vals = domains[neighbour]
@@ -236,9 +236,9 @@ def lcv_order_ineq(
     return sorted(effective, key=count_eliminated)
 
 
-# ---------------------------------------------------------------------------
-# Forward checking  (delta_h = raw discard count, nhất quán với h2 raw)
-# ---------------------------------------------------------------------------
+                                                                             
+                                                                       
+                                                                             
 
 def forward_check_ineq(
     domains: Domain,
@@ -262,7 +262,7 @@ def forward_check_ineq(
     (val,) = domains[assigned]
     delta_h = 0.0
 
-    # --- ≠ constraint (hàng + cột) ---
+                                       
     peers = peers_map[assigned] if peers_map is not None else (
         [(r, col) for col in range(n) if col != c] +
         [(row, c)  for row in range(n) if row != r]
@@ -274,7 +274,7 @@ def forward_check_ineq(
                 return None, float("inf")
             delta_h -= 1
 
-    # --- inequality constraints ---
+                                    
     for neighbour, sign in ineq_map.get(assigned, []):
         nb_vals = domains[neighbour]
         if len(nb_vals) == 1:
@@ -292,9 +292,9 @@ def forward_check_ineq(
     return domains, delta_h
 
 
-# ---------------------------------------------------------------------------
-# Utility
-# ---------------------------------------------------------------------------
+                                                                             
+         
+                                                                             
 
 def domains_to_grid(domains: Domain, n: int) -> List[List[int]]:
     grid = [[0] * n for _ in range(n)]

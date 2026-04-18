@@ -6,13 +6,13 @@ from typing import List, Optional, Set, Tuple
 import streamlit as st
 
 
-# Color constants for highlighting - soft, human-friendly palette
+                                                                 
 COLORS = {
-    "active": "var(--grid-active)",      # Currently processing
-    "changed": "var(--grid-changed)",    # Just assigned
-    "conflict": "var(--grid-conflict)",  # Constraint violation
-    "default": "var(--grid-default)",    # Normal cell
-    "given": "var(--grid-given)",        # Initial given values
+    "active": "var(--grid-active)",                            
+    "changed": "var(--grid-changed)",                   
+    "conflict": "var(--grid-conflict)",                        
+    "default": "var(--grid-default)",                 
+    "given": "var(--grid-given)",                              
 }
 
 
@@ -133,7 +133,7 @@ def _build_grid_html(
             value = grid[row][col]
             display_value = str(value) if value != 0 else ""
 
-            # Determine background color (priority: changed > active > conflict > given > default)
+                                                                                                  
             bg_color = COLORS["default"]
             if (row, col) == changed_cell:
                 bg_color = COLORS["changed"]
@@ -149,7 +149,7 @@ def _build_grid_html(
                 f'{display_value}</td>'
             )
 
-            # Horizontal constraint symbol
+                                          
             if col < size - 1:
                 h_symbol = ""
                 if h_constraints and len(h_constraints) > row and len(h_constraints[row]) > col:
@@ -163,7 +163,7 @@ def _build_grid_html(
 
         rows_html.append(f'<tr>{"".join(cells_html)}</tr>')
 
-        # Vertical constraint row
+                                 
         if row < size - 1:
             v_cells_html = []
             for col in range(size):

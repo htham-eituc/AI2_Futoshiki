@@ -49,7 +49,7 @@ class BruteforceSolver(BaseSolver):
         *,
         count_checks: bool = True,
     ) -> bool:
-        # Row uniqueness
+                        
         for c in range(self.n):
             if c == col:
                 continue
@@ -58,7 +58,7 @@ class BruteforceSolver(BaseSolver):
             if self.grid[row][c] == value:
                 return False
 
-        # Column uniqueness
+                           
         for r in range(self.n):
             if r == row:
                 continue
@@ -67,7 +67,7 @@ class BruteforceSolver(BaseSolver):
             if self.grid[r][col] == value:
                 return False
 
-        # Horizontal constraints (left neighbor)
+                                                
         if col > 0:
             constraint = self.h_constraints[row][col - 1]
             left_value = self.grid[row][col - 1]
@@ -79,7 +79,7 @@ class BruteforceSolver(BaseSolver):
                 if constraint == -1 and not (left_value > value):
                     return False
 
-        # Horizontal constraints (right neighbor)
+                                                 
         if col < self.n - 1:
             constraint = self.h_constraints[row][col]
             right_value = self.grid[row][col + 1]
@@ -91,7 +91,7 @@ class BruteforceSolver(BaseSolver):
                 if constraint == -1 and not (value > right_value):
                     return False
 
-        # Vertical constraints (top neighbor)
+                                             
         if row > 0:
             constraint = self.v_constraints[row - 1][col]
             top_value = self.grid[row - 1][col]
@@ -103,7 +103,7 @@ class BruteforceSolver(BaseSolver):
                 if constraint == -1 and not (top_value > value):
                     return False
 
-        # Vertical constraints (bottom neighbor)
+                                                
         if row < self.n - 1:
             constraint = self.v_constraints[row][col]
             bottom_value = self.grid[row + 1][col]
@@ -161,7 +161,7 @@ class BruteforceSolver(BaseSolver):
         solution = None
 
         try:
-            # Validate pre-filled cells
+                                       
             for row in range(self.n):
                 for col in range(self.n):
                     value = self.grid[row][col]
@@ -171,14 +171,14 @@ class BruteforceSolver(BaseSolver):
                         self.metrics.mark_solved(False)
                         status = "none"
                         solution = None
-                        return  # jump to finally
+                        return                   
                     self.grid[row][col] = 0
                     if not self._is_valid_assignment(row, col, value, count_checks=False):
                         self.grid[row][col] = value
                         self.metrics.mark_solved(False)
                         status = "none"
                         solution = None
-                        return  # jump to finally
+                        return                   
                     self.grid[row][col] = value
 
             self._backtrack(limit=2)
@@ -198,7 +198,7 @@ class BruteforceSolver(BaseSolver):
                 self.metrics.mark_solved(True)
 
         finally:
-            # stop() ALWAYS runs before to_dict() so elapsed_seconds is correct
+                                                                               
             self.metrics.stop()
             GLOBAL_METRICS_STORE.add(self.metrics)
 

@@ -32,7 +32,7 @@ class ForwardChainer:
     def _fc(self, kb: KnowledgeBase, record: bool = False) -> Optional[KnowledgeBase]:
         self.metrics.inc_nodes_expanded()
 
-        # ── Phase 1: unit propagation ─────────────────────────────────────
+                                                                            
         kb = self._propagate(kb)
         if kb is None:
             return None
@@ -45,7 +45,7 @@ class ForwardChainer:
                 self.snapshots.append(("solved", self._kb_to_grid(kb)))
             return kb
 
-        # ── Phase 2: singleton domain injection ───────────────────────────
+                                                                            
         domains  = self._compute_domains(kb)
         injected = False
 
@@ -66,7 +66,7 @@ class ForwardChainer:
         if injected:
             return self._fc(kb, record=record)
 
-        # ── Phase 3: splitting rule on MRV cell ───────────────────────────
+                                                                            
         split = self._mrv_cell(domains)
         if split is None:
             final = self._propagate(kb)
@@ -202,10 +202,10 @@ class ForwardChainingSolver(BaseSolver):
             for j in cells
         )
 
-    # ── step-by-step visualization ────────────────────────────────────────
+                                                                            
 
     def solve_steps(self, puzzle_data: Any) -> Generator[Any, None, None]:
-        from gui.service.visualization_service import StepState
+        from gui.services.visualization_service import StepState
 
         self.metrics.start()
 
@@ -223,14 +223,14 @@ class ForwardChainingSolver(BaseSolver):
             chainer      = ForwardChainer(self.metrics, self.n)
             kb           = KnowledgeBase(list(base_clauses), self.n)
 
-            # Run with recording — snapshots collected as side effect
+                                                                     
             solution = chainer.run(kb, record=True)
 
             step_num = 1
             for event, grid in chainer.snapshots:
                 etype, _, detail = event.partition(":")
 
-                # Skip internal solved marker — final StepState handles it
+                                                                          
                 if etype == "solved":
                     continue
 
@@ -286,7 +286,7 @@ class ForwardChainingSolver(BaseSolver):
                 )
                 step_num += 1
 
-            # Final step
+                        
             final_grid = solution if solution else [row[:] for row in puzzle_data.grid]
             yield StepState(
                 step_number    = step_num,
@@ -333,7 +333,7 @@ class ForwardChainingSolver(BaseSolver):
                 self.metrics.mark_solved(True)
 
         finally:
-            # stop() ALWAYS runs before to_dict() so elapsed_seconds is correct
+                                                                               
             self.metrics.stop()
             GLOBAL_METRICS_STORE.add(self.metrics)
 

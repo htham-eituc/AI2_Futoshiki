@@ -3,17 +3,17 @@ import os
 import sys
 from pathlib import Path
 
-# Add current dir to path
+                         
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Add src to path for imports from core
+                                       
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 from core.solvers.base_solver import SolverFactory
 from core.solvers.forward_chaining import ForwardChainingSolver
 from core.solvers.bruteforce import BruteforceSolver
 from core.solvers.backtracking import BacktrackingSolver
-import core.solvers.astar  # noqa: F401 — triggers @SolverFactory.register("astar")
+import core.solvers.astar                                                          
 from core.solvers.backward_chaining import BackwardChainingSolver
 from core.solvers.forward_no_heuristics import ForwardChainingSolverNoHeuristics
 from core.utils.metrics import GLOBAL_METRICS_STORE
@@ -22,18 +22,18 @@ from core.problem.parser import ParserFactory, AlgorithmAdapter, FutoshikiData
 
 def validate_solution(n: int, solution: list, h_constraints: list, v_constraints: list) -> bool:
 	"""Validate a Futoshiki solution."""
-	# Check each row has 1 to n
+                            
 	for row in solution:
 		if sorted(row) != list(range(1, n + 1)):
 			return False
-	
-	# Check each column has 1 to n
+ 
+                               
 	for col in range(n):
 		column = [solution[row][col] for row in range(n)]
 		if sorted(column) != list(range(1, n + 1)):
 			return False
-	
-	# Check horizontal constraints
+ 
+                               
 	for i in range(n):
 		for j in range(n - 1):
 			constraint = h_constraints[i][j] if j < len(h_constraints[i]) else 0
@@ -41,8 +41,8 @@ def validate_solution(n: int, solution: list, h_constraints: list, v_constraints
 				return False
 			if constraint == -1 and solution[i][j] <= solution[i][j + 1]:
 				return False
-	
-	# Check vertical constraints
+ 
+                             
 	for i in range(n - 1):
 		for j in range(n):
 			constraint = v_constraints[i][j] if j < len(v_constraints[i]) else 0
@@ -50,7 +50,7 @@ def validate_solution(n: int, solution: list, h_constraints: list, v_constraints
 				return False
 			if constraint == -1 and solution[i][j] <= solution[i + 1][j]:
 				return False
-	
+ 
 	return True
 
 
@@ -100,7 +100,7 @@ def run_tests(solver_name: str = "backtracking"):
 			h_constraints = futoshiki_data.h_constraints
 			v_constraints = futoshiki_data.v_constraints
 
-			# A* nhận dict từ AlgorithmAdapter; các solver khác nhận FutoshikiData
+                                                                         
 			if solver_name == "astar":
 				problem = AlgorithmAdapter(futoshiki_data).to_astar()
 			else:
@@ -108,7 +108,7 @@ def run_tests(solver_name: str = "backtracking"):
 
 			solver = SolverFactory.create(solver_name, problem)
 
-			# Tắt snapshots khi chạy batch test (tiết kiệm memory)
+                                                         
 			if solver_name == "astar":
 				solver.record_snapshots = False
 
@@ -117,8 +117,8 @@ def run_tests(solver_name: str = "backtracking"):
 			solution = result.get("solution") if result else None
 			metrics  = result.get("metrics")  if result else None
 
-			# BT/FC trả metrics là dict (và đã tự add vào GLOBAL_METRICS_STORE)
-			# A* trả SolverMetrics object (chưa add vào store)
+                                                                      
+                                                     
 			if metrics is not None and not isinstance(metrics, dict):
 				metrics.puzzle_id = puzzle_name
 				GLOBAL_METRICS_STORE.add(metrics)
@@ -153,9 +153,9 @@ def run_tests(solver_name: str = "backtracking"):
 	print(f"{'='*60}\n")
 
 
-# ---------------------------------------------------------------------------
-# Print helpers
-# ---------------------------------------------------------------------------
+                                                                             
+               
+                                                                             
 
 def _get(metrics, key: str, default=None):
 	"""Lấy field từ metrics dù là dict hay SolverMetrics object."""
@@ -181,19 +181,19 @@ def _print_fail(filename: str, metrics) -> None:
 	print(f"✗ {filename}: NO SOLUTION ({time_s})")
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
+                                                                             
+     
+                                                                             
 
 if __name__ == "__main__":
 	import argparse
 
 	parser = argparse.ArgumentParser(description="Test Futoshiki puzzles with different solvers")
 	parser.add_argument(
-		"--solver",
-		choices=["backtracking", "forward_chaining", "astar", "bruteforce"],
-		default="astar",
-		help="Which solver to use (default: backtracking)"
+	 "--solver",
+	 choices=["backtracking", "forward_chaining", "astar", "bruteforce"],
+	 default="astar",
+	 help="Which solver to use (default: backtracking)"
 	)
 
 	args = parser.parse_args()

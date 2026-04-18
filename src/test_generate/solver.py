@@ -2,9 +2,9 @@ import argparse
 import os
 
 
-# ---------------------------------------------------------------------------
-# File parser
-# ---------------------------------------------------------------------------
+                                                                             
+             
+                                                                             
 
 def parse_puzzle_file(filepath):
     """
@@ -19,24 +19,24 @@ def parse_puzzle_file(filepath):
 
     idx = 0
 
-    # Line 1: N
+               
     n = int(lines[idx]); idx += 1
 
-    # Lines 2 to N+1: grid
+                          
     grid = []
     for _ in range(n):
         row = [int(v.strip()) for v in lines[idx].split(",")]
         grid.append(row)
         idx += 1
 
-    # Lines N+2 to 2N+1: horizontal constraints (N lines, N-1 values each)
+                                                                          
     h_constraints = []
     for _ in range(n):
         row = [int(v.strip()) for v in lines[idx].split(",")]
         h_constraints.append(row)
         idx += 1
 
-    # Lines 2N+2 to 3N: vertical constraints (N-1 lines, N values each)
+                                                                       
     v_constraints = []
     for _ in range(n - 1):
         row = [int(v.strip()) for v in lines[idx].split(",")]
@@ -46,9 +46,9 @@ def parse_puzzle_file(filepath):
     return n, grid, h_constraints, v_constraints
 
 
-# ---------------------------------------------------------------------------
-# Validity checks
-# ---------------------------------------------------------------------------
+                                                                             
+                 
+                                                                             
 
 def is_valid_placement(grid, n, row, col, value, h_constraints, v_constraints):
     """
@@ -59,18 +59,18 @@ def is_valid_placement(grid, n, row, col, value, h_constraints, v_constraints):
       (only checked when both sides of the constraint are filled)
     """
 
-    # --- Row uniqueness ---
+                            
     for c in range(n):
         if c != col and grid[row][c] == value:
             return False
 
-    # --- Column uniqueness ---
+                               
     for r in range(n):
         if r != row and grid[r][col] == value:
             return False
 
-    # --- Horizontal constraints for this row ---
-    # Temporarily place the value to check constraints
+                                                 
+                                                      
     original = grid[row][col]
     grid[row][col] = value
 
@@ -81,7 +81,7 @@ def is_valid_placement(grid, n, row, col, value, h_constraints, v_constraints):
         left = grid[row][c]
         right = grid[row][c + 1]
         if left == 0 or right == 0:
-            continue  # One side empty — skip for now
+            continue                                 
         if constraint == 1 and not (left < right):
             grid[row][col] = original
             return False
@@ -89,7 +89,7 @@ def is_valid_placement(grid, n, row, col, value, h_constraints, v_constraints):
             grid[row][col] = original
             return False
 
-    # --- Vertical constraints involving this cell ---
+                                                      
     for r in range(n - 1):
         constraint = v_constraints[r][col]
         if constraint == 0:
@@ -97,7 +97,7 @@ def is_valid_placement(grid, n, row, col, value, h_constraints, v_constraints):
         top = grid[r][col]
         bottom = grid[r + 1][col]
         if top == 0 or bottom == 0:
-            continue  # One side empty — skip for now
+            continue                                 
         if constraint == 1 and not (top < bottom):
             grid[row][col] = original
             return False
@@ -109,9 +109,9 @@ def is_valid_placement(grid, n, row, col, value, h_constraints, v_constraints):
     return True
 
 
-# ---------------------------------------------------------------------------
-# Solver (backtracking)
-# ---------------------------------------------------------------------------
+                                                                             
+                       
+                                                                             
 
 def find_empty_cell(grid, n):
     """Return the (row, col) of the next empty cell, or None if full."""
@@ -134,13 +134,13 @@ def solve(grid, n, h_constraints, v_constraints, solutions, counter, limit=2):
     Returns True if the search should stop early (limit reached).
     """
     if len(solutions) >= limit:
-        return True  # Stop early
+        return True              
 
     cell = find_empty_cell(grid, n)
 
     if cell is None:
-        # No empty cells — puzzle is complete
-        solutions.append([row[:] for row in grid])  # Deep copy
+                                             
+        solutions.append([row[:] for row in grid])             
         return len(solutions) >= limit
 
     row, col = cell
@@ -149,16 +149,16 @@ def solve(grid, n, h_constraints, v_constraints, solutions, counter, limit=2):
         if is_valid_placement(grid, n, row, col, value, h_constraints, v_constraints):
             grid[row][col] = value
             if solve(grid, n, h_constraints, v_constraints, solutions, counter, limit):
-                return True  # Propagate early stop
-            grid[row][col] = 0  # Backtrack
-            counter[0] += 1     # Count each backtrack
+                return True                        
+            grid[row][col] = 0             
+            counter[0] += 1                           
 
     return False
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
+                                                                             
+            
+                                                                             
 
 def solve_puzzle(n, grid, h_constraints, v_constraints):
     """
@@ -169,9 +169,9 @@ def solve_puzzle(n, grid, h_constraints, v_constraints):
         solution   - solved grid, or None if no solution
         backtracks - number of backtracks the solver needed
     """
-    working_grid = [row[:] for row in grid]  # Don't mutate the original
+    working_grid = [row[:] for row in grid]                             
     solutions = []
-    counter = [0]  # Mutable counter passed through recursion
+    counter = [0]                                            
 
     solve(working_grid, n, h_constraints, v_constraints, solutions, counter, limit=2)
 
@@ -204,9 +204,9 @@ def solve_from_file(filepath):
     return status, solution, backtracks, n
 
 
-# ---------------------------------------------------------------------------
-# Display helpers
-# ---------------------------------------------------------------------------
+                                                                             
+                 
+                                                                             
 
 def format_grid_row(row, h_row):
     """
@@ -238,12 +238,12 @@ def format_v_constraint_row(v_row):
     """
     v_chars = {1: "v", -1: "^", 0: " "}
     n = len(v_row)
-    # Total width of a grid row: n cells + (n-1) separators of 3 chars each
-    # = n + (n-1)*3 = 4n - 3
+                                                                           
+                            
     total_width = 4 * n - 3
     row_chars = [" "] * total_width
     for col, val in enumerate(v_row):
-        pos = col * 4  # Each cell is at position col * 4
+        pos = col * 4                                    
         row_chars[pos] = v_chars[val]
     return "".join(row_chars)
 
@@ -263,17 +263,17 @@ def print_grid(grid, n, h_constraints, v_constraints, label=""):
         print(f"\n{label}")
 
     for row in range(n):
-        # Print grid row with horizontal constraints
+                                                    
         print(format_grid_row(grid[row], h_constraints[row]))
 
-        # Print vertical constraint row (except after the last row)
+                                                                   
         if row < n - 1:
             print(format_v_constraint_row(v_constraints[row]))
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
+                                                                             
+     
+                                                                             
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Futoshiki puzzle solver")

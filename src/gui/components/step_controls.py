@@ -38,13 +38,13 @@ def render_step_controls(
     """
     result = {"action": None}
     
-    # Step counter display
+                          
     if total_steps is not None:
         st.markdown(f"**Step {current_step} of {total_steps}**")
     else:
         st.markdown(f"**Step {current_step}**")
     
-    # Control buttons
+                     
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
@@ -78,7 +78,7 @@ def render_step_controls(
                 on_next()
     
     with col5:
-        # Speed slider placeholder - actual slider rendered separately
+                                                                      
         pass
     
     return result

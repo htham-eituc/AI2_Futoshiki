@@ -11,7 +11,7 @@ def render_home_screen() -> None:
     
     Sets st.session_state["screen"] to navigate to other screens.
     """
-    # Header with warm, welcoming design
+                                        
     st.markdown(
         """
         <div style="
@@ -44,7 +44,7 @@ def render_home_screen() -> None:
         unsafe_allow_html=True,
     )
     
-    # Navigation cards with improved layout
+                                           
     col1, col2, col3 = st.columns([1, 3, 1])
     
     with col2:
@@ -53,11 +53,11 @@ def render_home_screen() -> None:
             unsafe_allow_html=True,
         )
         
-        # Two-column layout for cards
+                                     
         card_col1, card_col2 = st.columns(2)
         
         with card_col1:
-            # Card A - Step-by-Step Visualization
+                                                 
             st.markdown(
                 """
                 <div class="edu-card" style="height: 100%; min-height: 180px;">
@@ -93,7 +93,7 @@ def render_home_screen() -> None:
                 st.rerun()
         
         with card_col2:
-            # Card B - Compare Mode
+                                   
             st.markdown(
                 """
                 <div class="edu-card" style="height: 100%; min-height: 180px;">
@@ -128,7 +128,7 @@ def render_home_screen() -> None:
                 st.session_state["screen"] = "compare_mode"
                 st.rerun()
     
-    # Footer
+            
     st.markdown("<div style='height: 48px'></div>", unsafe_allow_html=True)
     st.markdown(
         """

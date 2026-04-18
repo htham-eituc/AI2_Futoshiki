@@ -11,7 +11,7 @@ Run with: streamlit run src/gui/app.py
 import sys
 from pathlib import Path
 
-# Add src directory to path for imports
+                                       
 SRC_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = SRC_DIR.parent
 if str(SRC_DIR) not in sys.path:
@@ -19,7 +19,7 @@ if str(SRC_DIR) not in sys.path:
 
 import streamlit as st
 
-# Import screen components
+                          
 from gui.components.home import render_home_screen
 from gui.components.step_visualizer import render_step_visualization
 from gui.components.compare_mode import render_compare_mode
@@ -43,7 +43,7 @@ def render_error_boundary(func):
                 st.session_state["screen"] = "home"
                 st.rerun()
             
-            # Show error details in expander
+                                            
             with st.expander("Error Details"):
                 st.exception(e)
     return wrapper
@@ -51,7 +51,7 @@ def render_error_boundary(func):
 
 def main():
     """Main application entry point."""
-    # Page configuration
+                        
     st.set_page_config(
         page_title="Futoshiki Algorithm Visualizer",
         page_icon=None,
@@ -59,7 +59,7 @@ def main():
         initial_sidebar_state="collapsed",
     )
     
-    # Custom CSS - Education-Friendly Theme with Best UI/UX
+                                                           
     st.markdown(
         """
         <style>
@@ -433,10 +433,10 @@ def main():
         unsafe_allow_html=True,
     )
     
-    # Initialize session state
+                              
     init_session_state()
     
-    # Route to appropriate screen
+                                 
     screen = st.session_state.get("screen", "home")
     
     if screen == "home":

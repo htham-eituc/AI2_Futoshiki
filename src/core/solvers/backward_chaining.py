@@ -124,7 +124,7 @@ class SLDInterpreter:
     ) -> None:
         self.N         = N
         self.metrics   = metrics
-        self.snapshots = snapshots  # injected by solve_steps(), None in solve()
+        self.snapshots = snapshots                                              
 
         self._rules: Dict[str, List[Rule]] = {}
         for rule in rules:
@@ -212,7 +212,7 @@ class SLDInterpreter:
 
                     new_asgn = {**asgn3, (gi, gj): gv}
 
-                    # Record snapshot if visualizing
+                                                    
                     if self.snapshots is not None:
                         is_given = (gi, gj) in self._given
                         self.snapshots.append((gi, gj, gv, is_given))
@@ -338,7 +338,7 @@ class BackwardChainingSolver(BaseSolver):
         self.n       = problem.size
         self._puzzle = futoshiki_to_puzzle_dict(problem)
 
-    # ── step-by-step visualization ────────────────────────────────────────
+                                                                            
 
     def solve_steps(self, puzzle_data: Any) -> Generator[Any, None, None]:
         """
@@ -352,7 +352,7 @@ class BackwardChainingSolver(BaseSolver):
         is_given=True  → proven via R1 (given cell, unit clause fired)
         is_given=False → proven via R2 (domain enumeration + constraints)
         """
-        from gui.service.visualization_service import StepState
+        from gui.services.visualization_service import StepState
 
         self.metrics.start()
 
@@ -372,19 +372,19 @@ class BackwardChainingSolver(BaseSolver):
                 for (r, c), v in self._puzzle["given"].items()
             }
 
-            # Snapshot list injected into interpreter
+                                                     
             snapshots: List[Tuple[int, int, int, bool]] = []
 
             interp  = SLDInterpreter(rules, facts, self.n, self.metrics,
                                      snapshots=snapshots)
             solution = interp.query_all_cells(initial_assignments=given_seed)
 
-            # Replay snapshots
+                              
             display_grid = [row[:] for row in puzzle_data.grid]
             step_num     = 1
 
             for (gi, gj, gv, is_given) in snapshots:
-                r, c = gi - 1, gj - 1   # convert to 0-indexed
+                r, c = gi - 1, gj - 1                         
                 display_grid[r][c] = gv
 
                 if is_given:
@@ -410,7 +410,7 @@ class BackwardChainingSolver(BaseSolver):
                 )
                 step_num += 1
 
-            # Final step
+                        
             final_grid = solution if solution else [row[:] for row in puzzle_data.grid]
             yield StepState(
                 step_number    = step_num,
@@ -469,7 +469,7 @@ class BackwardChainingSolver(BaseSolver):
                 self.metrics.mark_solved(True)
 
         finally:
-            # stop() ALWAYS runs before to_dict() so elapsed_seconds is correct
+                                                                               
             self.metrics.stop()
             GLOBAL_METRICS_STORE.add(self.metrics)
 

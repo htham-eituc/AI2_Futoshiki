@@ -61,9 +61,9 @@ from ..heuristics.heuristics import (
 )
 
 
-# ---------------------------------------------------------------------------
-# Internal node
-# ---------------------------------------------------------------------------
+                                                                             
+               
+                                                                             
 
 class _Node:
     __slots__ = ("domains", "g", "h", "f", "grid", "_id")
@@ -107,9 +107,9 @@ class _Node:
         return True
 
 
-# ---------------------------------------------------------------------------
-# Solver
-# ---------------------------------------------------------------------------
+                                                                             
+        
+                                                                             
 
 @SolverFactory.register("astar")
 class AStarSolver(BaseSolver):
@@ -143,9 +143,9 @@ class AStarSolver(BaseSolver):
 
         self.record_snapshots: bool = True
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
+                                                                        
+                
+                                                                        
 
     def solve(self) -> Dict[str, Any]:
         self.metrics.start()
@@ -168,9 +168,9 @@ class AStarSolver(BaseSolver):
             "metrics":  self.metrics.to_dict(),
         }
 
-    # ------------------------------------------------------------------
-    # Core A* loop
-    # ------------------------------------------------------------------
+                                                                        
+                  
+                                                                        
 
     def _run(self) -> Optional[List[List[int]]]:
         n          = self._n
@@ -225,7 +225,7 @@ class AStarSolver(BaseSolver):
             r, c    = cell
             g_child = node.g + 1
 
-            # h incremental: trừ đóng góp raw của cell này (sẽ là singleton)
+                                                                            
             parent_domain_size = len(node.domains[cell])
             h_after_assign     = node.h - (parent_domain_size - 1)
 
@@ -255,7 +255,7 @@ class AStarSolver(BaseSolver):
                 if child_sig in closed:
                     continue
 
-                # delta_h nhất quán với h raw → h_child admissible
+                                                                  
                 h_child    = h_after_assign + delta_h
                 child_grid = domains_to_grid(child_domains, n)
 
@@ -280,9 +280,9 @@ class AStarSolver(BaseSolver):
         return None
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+                                                                             
+         
+                                                                             
 
 def _signature(domains: Domain) -> frozenset:
     """
