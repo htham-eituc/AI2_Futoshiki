@@ -80,14 +80,6 @@ def render_nodes_chart(
     metric: str = "nodes_generated",
     title: Optional[str] = None,
 ) -> None:
-    """
-    Render grouped bar chart comparing node metrics.
-    
-    Args:
-        df: DataFrame with columns: algorithm, testcase, and the metric column.
-        metric: Column name for the metric to plot.
-        title: Chart title (auto-generated if None).
-    """
     if title is None:
         metric_labels = {
             "nodes_generated": "Nodes Generated",
@@ -124,13 +116,6 @@ def render_success_rate_chart(
     df: pd.DataFrame,
     title: str = "Success Rate by Algorithm",
 ) -> None:
-    """
-    Render bar chart showing solve success rate per algorithm.
-    
-    Args:
-        df: DataFrame with columns: algorithm, testcase, solved
-        title: Chart title.
-    """
                                           
     success_df = df.groupby("algorithm").agg(
         total=("solved", "count"),
@@ -167,13 +152,6 @@ def render_constraint_checks_chart(
     df: pd.DataFrame,
     title: str = "Constraint Checks Distribution",
 ) -> None:
-    """
-    Render box plot comparing constraint check counts.
-    
-    Args:
-        df: DataFrame with columns: algorithm, constraint_checks
-        title: Chart title.
-    """
     fig = px.box(
         df,
         x="algorithm",
@@ -196,13 +174,6 @@ def render_backtracks_chart(
     df: pd.DataFrame,
     title: str = "Backtracks by Test Case",
 ) -> None:
-    """
-    Render line chart showing backtracks across testcases.
-    
-    Args:
-        df: DataFrame with columns: algorithm, testcase, backtracks
-        title: Chart title.
-    """
     fig = px.line(
         df,
         x="testcase",
@@ -229,12 +200,6 @@ def render_backtracks_chart(
 
 
 def render_summary_table(df: pd.DataFrame) -> None:
-    """
-    Render summary statistics table.
-    
-    Args:
-        df: DataFrame with comparison results.
-    """
                                                   
     summary = df.groupby("algorithm").agg(
         avg_time=("elapsed_seconds", "mean"),

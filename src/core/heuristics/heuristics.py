@@ -1,28 +1,3 @@
-"""
-Heuristic helpers for Futoshiki solvers.
-
-Constraint format (chuẩn Futoshiki):
-  h_constraints[r][c] = 1   →  cell (r,c) < cell (r, c+1)
-  h_constraints[r][c] = -1  →  cell (r,c) > cell (r, c+1)
-  h_constraints[r][c] = 0   →  không có ràng buộc
-  (tương tự cho v_constraints theo chiều dọc)
-
-h2 (inequality-aware):
-  h2(s) = Σ (|domain(cell)| - 1)   [raw domain size, không qua ineq filter]
-        = 0   iff every cell is assigned
-        = ∞   iff any domain is empty
-
-  Tại sao dùng raw size thay vì effective size?
-  - effective size đòi hỏi gọi _effective_size() cho mỗi cell bị prune,
-    benchmark cho thấy chậm hơn 5× so với raw count.
-  - Raw size vẫn admissible (raw >= effective nên h <= h*).
-  - Correctness đảm bảo bằng is_goal() validate đầy đủ, không phải bằng
-    việc h phải tight.
-
-  forward_check_ineq trả về delta_h = -(số giá trị bị loại khỏi raw domain),
-  nhất quán với định nghĩa h2 ở trên.
-"""
-
 from __future__ import annotations
 
 from typing import Dict, List, Optional, Set, Tuple
@@ -30,22 +5,11 @@ from typing import Dict, List, Optional, Set, Tuple
 Cell   = Tuple[int, int]
 Domain = Dict[Cell, Set[int]]
 
-                                                                             
-                    
-                                                                             
-
 def build_ineq_map(
     n: int,
     h_constraints: List[List[int]],
     v_constraints: List[List[int]],
 ) -> Dict[Cell, List[Tuple[Cell, int]]]:
-    """
-    Xây dựng bảng tra cứu nhanh:
-      ineq_map[cell] = [(neighbour, sign), ...]
-    với sign = +1 nghĩa là cell < neighbour,
-         sign = -1 nghĩa là cell > neighbour.
-    Gọi một lần duy nhất lúc khởi tạo solver.
-    """
     ineq_map: Dict[Cell, List[Tuple[Cell, int]]] = {
         (r, c): [] for r in range(n) for c in range(n)
     }
@@ -65,10 +29,6 @@ def build_ineq_map(
 
 
 def build_peers_map(n: int) -> Dict[Cell, List[Cell]]:
-    """
-    Precompute danh sách peers (cùng hàng + cột) cho mỗi cell.
-    Tránh list-comprehension O(N) lặp lại trong mỗi node expansion.
-    """
     peers_map: Dict[Cell, List[Cell]] = {}
     for r in range(n):
         for c in range(n):
@@ -76,12 +36,7 @@ def build_peers_map(n: int) -> Dict[Cell, List[Cell]]:
                 [(r, col) for col in range(n) if col != c] +
                 [(row, c)  for row in range(n) if row != r]
             )
-    return peers_map
-
-
-                                                                             
-                       
-                                                                             
+    return peers_map                                                              
 
 def build_initial_domains(n: int, grid: List[List[int]]) -> Domain:
     domains: Domain = {}
@@ -91,13 +46,7 @@ def build_initial_domains(n: int, grid: List[List[int]]) -> Domain:
             domains[(r, c)] = {v} if v != 0 else set(range(1, n + 1))
     return domains
 
-
-                                                                             
-              
-                                                                             
-
 def compute_heuristic(domains: Domain) -> float:
-    """h2 = Σ (|domain(cell)| - 1). inf nếu có domain rỗng."""
     total = 0
     for vals in domains.values():
         k = len(vals)
@@ -106,25 +55,14 @@ def compute_heuristic(domains: Domain) -> float:
         total += k - 1
     return total
 
-
 def compute_heuristic_ineq(
     domains: Domain,
     ineq_map: Dict[Cell, List[Tuple[Cell, int]]],
 ) -> float:
-    """
-    Alias của compute_heuristic — dùng raw domain size.
-    Giữ tên để tương thích với caller (astar.py).
-    ineq_map không dùng ở đây nhưng giữ signature để không cần sửa caller.
-    """
     return compute_heuristic(domains)
 
-
-                                                                             
-                           
-                                                                             
-
 def select_mrv_cell(domains: Domain) -> Optional[Cell]:
-    """MRV: pick unassigned cell with smallest domain (> 1)."""
+    """MRV: pick unassigned cell with smallest domain > 1."""
     unassigned = {cell: vals for cell, vals in domains.items() if len(vals) > 1}
     if not unassigned:
         return None
@@ -135,13 +73,6 @@ def select_mrv_cell_ineq(
     domains: Domain,
     ineq_map: Dict[Cell, List[Tuple[Cell, int]]],
 ) -> Optional[Cell]:
-    """
-    MRV tích hợp inequality: ưu tiên cell có effective domain nhỏ nhất.
-    Fail-first: trả ngay nếu phát hiện cell có effective domain = 0.
-
-    Chỉ compute effective domain cho MRV (gọi 1 lần per node, không per child)
-    → chi phí chấp nhận được.
-    """
     best_cell: Optional[Cell] = None
     best_size: int = 10**9
 
@@ -169,7 +100,6 @@ def select_mrv_cell_ineq(
 
     return best_cell
 
-
 def lcv_order(
     cell: Cell,
     domains: Domain,
@@ -189,7 +119,6 @@ def lcv_order(
 
     return sorted(domains[cell], key=count_eliminated)
 
-
 def lcv_order_ineq(
     cell: Cell,
     domains: Domain,
@@ -197,13 +126,8 @@ def lcv_order_ineq(
     ineq_map: Dict[Cell, List[Tuple[Cell, int]]],
     peers_map: Optional[Dict[Cell, List[Cell]]] = None,
 ) -> List[int]:
-    """
-    LCV tích hợp inequality.
-    peers_map: precomputed để tránh list-comp O(N) mỗi lần.
-    """
     r, c = cell
 
-                          
     effective = set(domains[cell])
     for neighbour, sign in ineq_map.get(cell, []):
         nb_vals = domains[neighbour]
@@ -235,11 +159,6 @@ def lcv_order_ineq(
 
     return sorted(effective, key=count_eliminated)
 
-
-                                                                             
-                                                                       
-                                                                             
-
 def forward_check_ineq(
     domains: Domain,
     assigned: Cell,
@@ -247,17 +166,6 @@ def forward_check_ineq(
     ineq_map: Dict[Cell, List[Tuple[Cell, int]]],
     peers_map: Optional[Dict[Cell, List[Cell]]] = None,
 ) -> Tuple[Optional[Domain], float]:
-    """
-    Forward checking tích hợp inequality constraints.
-
-    delta_h = -(số giá trị bị loại khỏi raw domain).
-    Nhất quán với h2 = Σ (|domain| - 1):
-      mỗi giá trị bị loại giảm |domain| đi 1 → h giảm 1.
-
-    Trả về:
-      (None, inf)          nếu có domain nào rỗng
-      (domains, delta_h)   delta_h <= 0
-    """
     r, c = assigned
     (val,) = domains[assigned]
     delta_h = 0.0
@@ -274,7 +182,6 @@ def forward_check_ineq(
                 return None, float("inf")
             delta_h -= 1
 
-                                    
     for neighbour, sign in ineq_map.get(assigned, []):
         nb_vals = domains[neighbour]
         if len(nb_vals) == 1:
@@ -290,11 +197,6 @@ def forward_check_ineq(
             delta_h -= len(to_remove)
 
     return domains, delta_h
-
-
-                                                                             
-         
-                                                                             
 
 def domains_to_grid(domains: Domain, n: int) -> List[List[int]]:
     grid = [[0] * n for _ in range(n)]

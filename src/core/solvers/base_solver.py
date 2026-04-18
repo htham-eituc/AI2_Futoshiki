@@ -66,8 +66,6 @@ class SolverFactory:
 
 	@classmethod
 	def registered_solvers(cls) -> Dict[str, Type[BaseSolver]]:
-		"""Return a copy of the solver registry."""
-
 		return dict(cls._registry)
 
 

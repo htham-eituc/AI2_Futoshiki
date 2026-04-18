@@ -341,17 +341,6 @@ class BackwardChainingSolver(BaseSolver):
                                                                             
 
     def solve_steps(self, puzzle_data: Any) -> Generator[Any, None, None]:
-        """
-        Run the solver with snapshot recording enabled, then replay
-        snapshots as StepState objects for the visualizer.
-
-        Snapshots are (row, col, value, is_given) tuples recorded each
-        time a val(i,j,v) goal is proven — i.e. each cell commitment in
-        SLD goal order (row by row, left to right).
-
-        is_given=True  → proven via R1 (given cell, unit clause fired)
-        is_given=False → proven via R2 (domain enumeration + constraints)
-        """
         from gui.services.visualization_service import StepState
 
         self.metrics.start()

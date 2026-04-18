@@ -8,7 +8,6 @@ class KnowledgeBase:
         self.negated  = set()                                    
 
     def add_fact(self, lit: Literal):
-        """Assert a literal as definitely true."""
         self.facts.add(lit)
                                                   
         self.negated.add(lit.atom if lit.negated else lit.atom)
@@ -17,20 +16,12 @@ class KnowledgeBase:
         return lit in self.facts
 
     def is_false(self, lit: Literal) -> bool:
-        """A literal is false if its complement is known true."""
         return lit.complement() in self.facts
 
     def unit_clauses(self):
-        """Return all size-1 clauses (facts to propagate)."""
         return [c for c in self.clauses if len(c) == 1]
 
     def simplify(self):
-        """
-        Unit propagation: if a unit clause {L} exists,
-        - remove all clauses containing L  (satisfied)
-        - remove ¬L from all other clauses (trimmed)
-        Repeat until no unit clauses remain.
-        """
         changed = True
         while changed:
             changed = False

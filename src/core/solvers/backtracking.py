@@ -14,7 +14,6 @@ from ..heuristics.ac3 import (
     domains_to_grid,
 )
 
-
 @SolverFactory.register("backtracking")
 class BacktrackingSolver(BaseSolver):
     """
@@ -113,11 +112,7 @@ class BacktrackingSolver(BaseSolver):
 
             self.metrics.inc_backtracks()
 
-        return False
-
-                                                                        
-                 
-                                                                        
+        return False                                                                 
 
     def solve(self) -> Dict[str, Any]:
         self.metrics.start()
@@ -125,11 +120,8 @@ class BacktrackingSolver(BaseSolver):
         status = "none"
         solution = None
 
-        try:
-                                   
-            domains = build_initial_domains(self.n, self.grid)
-
-                                      
+        try:                  
+            domains = build_initial_domains(self.n, self.grid)                  
             domains = run_ac3(
                 domains,
                 self.n,

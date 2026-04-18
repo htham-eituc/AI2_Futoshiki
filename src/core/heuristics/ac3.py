@@ -1,7 +1,7 @@
 """
 AC-3 (Arc Consistency Algorithm 3) for Futoshiki.
 
-Shared between A* and Backtracking solvers.
+Backtracking solvers.
 """
 
 from __future__ import annotations
@@ -11,12 +11,7 @@ from copy import deepcopy
 from typing import Dict, List, Optional, Set, Tuple
 
 Cell = Tuple[int, int]
-Domain = Dict[Cell, Set[int]]
-
-
-                                                                             
-                       
-                                                                             
+Domain = Dict[Cell, Set[int]]                                                                     
 
 def build_initial_domains(n: int, grid: List[List[int]]) -> Domain:
     """
@@ -29,11 +24,6 @@ def build_initial_domains(n: int, grid: List[List[int]]) -> Domain:
             v = grid[r][c]
             domains[(r, c)] = {v} if v != 0 else set(range(1, n + 1))
     return domains
-
-
-                                                                             
-                        
-                                                                             
 
 def _inequality_arcs(
     n: int,
@@ -66,19 +56,9 @@ def _inequality_arcs(
             elif d == -1:
                 ineq.append(((r, c), (r + 1, c), -1))
                 ineq.append(((r + 1, c), (r, c),  1))
-    return ineq
-
-
-                                                                             
-                    
-                                                                             
+    return ineq                                                     
 
 def _revise_neq(domains: Domain, xi: Cell, xj: Cell) -> bool:
-    """
-    Remove from domains[xi] any value with no support under ≠.
-    A value v has no support iff domains[xj] == {v}.
-    Returns True if domains[xi] changed.
-    """
     if len(domains[xj]) == 1:
         (fixed,) = domains[xj]
         if fixed in domains[xi]:
@@ -86,15 +66,7 @@ def _revise_neq(domains: Domain, xi: Cell, xj: Cell) -> bool:
             return True
     return False
 
-
 def _revise_ineq(domains: Domain, xi: Cell, xj: Cell, direction: int) -> bool:
-    """
-    Remove from domains[xi] values that cannot satisfy the inequality
-    with any value in domains[xj].
-
-    direction = +1 : xi < xj  → remove v from xi if v >= max(xj)
-    direction = -1 : xi > xj  → remove v from xi if v <= min(xj)
-    """
     if direction == 1:
         max_xj = max(domains[xj])
         to_remove = {v for v in domains[xi] if v >= max_xj}
@@ -107,25 +79,12 @@ def _revise_ineq(domains: Domain, xi: Cell, xj: Cell, direction: int) -> bool:
         return True
     return False
 
-
-                                                                             
-           
-                                                                             
-
 def run_ac3(
     domains: Domain,
     n: int,
     h_constraints: List[List[int]],
     v_constraints: List[List[int]],
 ) -> Optional[Domain]:
-    """
-    Run AC-3 on a *copy* of domains.
-
-    Returns
-    -------
-    Updated Domain  — arc-consistent, no empty domain.
-    None            — some domain became empty (branch infeasible, h = ∞).
-    """
     domains = deepcopy(domains)
     queue: deque = deque()
 
@@ -177,12 +136,7 @@ def run_ac3(
                     if cell_b == xi and cell_a != xj:
                         queue.append(("ineq", cell_a, cell_b, d))
 
-    return domains
-
-
-                                                                             
-                                
-                                                                             
+    return domains                                                                        
 
 def compute_heuristic(domains: Domain) -> float:
     """h(s) = number of unassigned cells (domain size > 1)."""
@@ -204,7 +158,6 @@ def lcv_order(
     h_constraints: List[List[int]],
     v_constraints: List[List[int]],
 ) -> List[int]:
-    """LCV: order values by fewest constraints eliminated from peers."""
     r, c = cell
     peers: List[Cell] = (
         [(r, col) for col in range(n) if col != c] +
@@ -214,15 +167,9 @@ def lcv_order(
     def count_eliminated(v: int) -> int:
         return sum(1 for peer in peers if v in domains[peer])
 
-    return sorted(domains[cell], key=count_eliminated)
-
-
-                                                                             
-         
-                                                                             
+    return sorted(domains[cell], key=count_eliminated)                                                         
 
 def domains_to_grid(domains: Domain, n: int) -> List[List[int]]:
-    """Convert domains to N×N grid. Unassigned cells → 0."""
     grid = [[0] * n for _ in range(n)]
     for (r, c), vals in domains.items():
         if len(vals) == 1:

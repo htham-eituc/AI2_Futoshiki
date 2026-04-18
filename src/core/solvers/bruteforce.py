@@ -1,13 +1,3 @@
-"""
-Simple Backtracking Solver for Futoshiki Puzzles.
-
-This solver uses a basic backtracking approach:
-- Sequential variable selection (row-by-row, left-to-right)
-- Natural value ordering (1..N)
-- Post-assignment constraint validation
-- Array-based state saving for backtracking
-"""
-
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -147,15 +137,6 @@ class BruteforceSolver(BaseSolver):
         return False
 
     def solve(self) -> Dict[str, Any]:
-        """
-        Solve the Futoshiki puzzle using basic backtracking.
-
-        Returns:
-            Dict with keys:
-                - status: "unique", "multiple", or "none"
-                - solution: solved grid or None
-                - metrics: solver metrics dict
-        """
         self.metrics.start()
         status = "none"
         solution = None

@@ -18,24 +18,6 @@ def render_step_controls(
     current_step: int = 0,
     total_steps: Optional[int] = None,
 ) -> dict:
-    """
-    Render step control buttons and return actions.
-    
-    Args:
-        on_previous: Callback for previous step.
-        on_next: Callback for next step.
-        on_play: Callback for play.
-        on_pause: Callback for pause.
-        on_reset: Callback for reset.
-        is_playing: Whether auto-play is active.
-        can_go_previous: Whether previous button is enabled.
-        can_go_next: Whether next button is enabled.
-        current_step: Current step number.
-        total_steps: Total number of steps (if known).
-        
-    Returns:
-        Dict with action taken: {"action": "next"|"previous"|"play"|"pause"|"reset"|None}
-    """
     result = {"action": None}
     
                           
@@ -90,18 +72,6 @@ def render_speed_slider(
     default_delay: int = 500,
     key: str = "speed_slider",
 ) -> int:
-    """
-    Render speed control slider.
-    
-    Args:
-        min_delay: Minimum delay in ms.
-        max_delay: Maximum delay in ms.
-        default_delay: Default delay in ms.
-        key: Streamlit widget key.
-        
-    Returns:
-        Selected delay in milliseconds.
-    """
     delay = st.slider(
         "Playback Speed (ms delay)",
         min_value=min_delay,

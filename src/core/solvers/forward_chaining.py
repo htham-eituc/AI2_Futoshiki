@@ -18,10 +18,6 @@ class ForwardChainer:
         self.snapshots: List[Tuple[str, List[List[int]]]] = []
 
     def run(self, kb: KnowledgeBase, record: bool = False) -> Optional[List[List[int]]]:
-        """
-        Solve and return the grid, or None on failure.
-        If record=True, populate self.snapshots for step replay.
-        """
         if record:
             self.snapshots.clear()
         result = self._fc(kb, record=record)
@@ -66,7 +62,6 @@ class ForwardChainer:
         if injected:
             return self._fc(kb, record=record)
 
-                                                                            
         split = self._mrv_cell(domains)
         if split is None:
             final = self._propagate(kb)
@@ -161,7 +156,6 @@ class ForwardChainer:
         return sorted(possible, key=conflict_count)
 
     def _kb_to_grid(self, kb: KnowledgeBase) -> List[List[int]]:
-        """Extract current partial grid (0 = unassigned) from KB facts."""
         grid = [[0] * self.N for _ in range(self.N)]
         for i in range(1, self.N + 1):
             for j in range(1, self.N + 1):
@@ -201,9 +195,7 @@ class ForwardChainingSolver(BaseSolver):
             for i in cells
             for j in cells
         )
-
-                                                                            
-
+    
     def solve_steps(self, puzzle_data: Any) -> Generator[Any, None, None]:
         from gui.services.visualization_service import StepState
 

@@ -1,43 +1,3 @@
-"""
-A* Search Solver for Futoshiki.
-
-Inherits from BaseSolver. Registered as "astar" in SolverFactory.
-
-Algorithm:
-  f(s) = g(s) + h(s)
-    g(s) = số cell đã gán (depth)
-    h(s) = Σ (|domain(cell)| - 1)  [raw size, admissible]
-           = 0   iff goal
-           = inf nếu có domain rỗng
-
-  Variable ordering : MRV tích hợp inequality  (select_mrv_cell_ineq)
-  Value ordering    : LCV tích hợp inequality  (lcv_order_ineq)
-  Pruning           : Forward checking ≠ + inequality sau mỗi lần gán.
-
-Tại sao h dùng raw domain size thay vì effective size?
-  Benchmark cho thấy effective size (lọc qua ineq_map) chậm hơn 5× so
-  với raw count. Với 241k nodes trên 9x9_no_solve, sự chênh lệch này
-  quyết định tốc độ. Raw size vẫn admissible. Correctness đảm bảo bởi
-  is_goal() validate đầy đủ all-different + inequality.
-
-Tại sao _signature chỉ hash assigned cells?
-  Benchmark: sig_full (frozenset×frozenset) = 15µs, sig_assigned = 7µs.
-  Với hàng chục nghìn nodes, sig_full tiêu tốn hàng giây chỉ cho hashing.
-  sig_assigned đủ để dedup trong thực tế: hai node có cùng partial
-  assignment hầu như luôn được generate từ cùng một path → closed set
-  vẫn hoạt động tốt. Correctness cuối cùng đảm bảo bởi is_goal().
-
-Optimisations:
-  1. h incremental raw — O(1) per discard, nhất quán với h2 raw.
-  2. peers_map precomputed — tránh list-comp O(N) mỗi node.
-  3. ineq_map precomputed — tái sử dụng toàn bộ search.
-  4. _signature lightweight — chỉ hash singleton cells.
-  5. is_goal() validate all-different + inequality — không trả false solution.
-  6. shallow_copy_domains thay deepcopy.
-  7. domains_to_grid gọi 1 lần mỗi child.
-  8. parent_eff tính từ raw domain (len) thay vì effective size.
-"""
-
 from __future__ import annotations
 
 import heapq
@@ -58,12 +18,7 @@ from ..heuristics.heuristics import (
     lcv_order_ineq,
     select_mrv_cell_ineq,
     shallow_copy_domains,
-)
-
-
-                                                                             
-               
-                                                                             
+)                                                                              
 
 class _Node:
     __slots__ = ("domains", "g", "h", "f", "grid", "_id")
@@ -106,11 +61,6 @@ class _Node:
 
         return True
 
-
-                                                                             
-        
-                                                                             
-
 @SolverFactory.register("astar")
 class AStarSolver(BaseSolver):
     """A* search solver for Futoshiki."""
@@ -141,11 +91,7 @@ class AStarSolver(BaseSolver):
         self._ineq_map  = build_ineq_map(self._n, self._h_con, self._v_con)
         self._peers_map = build_peers_map(self._n)
 
-        self.record_snapshots: bool = True
-
-                                                                        
-                
-                                                                        
+        self.record_snapshots: bool = True                                                             
 
     def solve(self) -> Dict[str, Any]:
         self.metrics.start()
@@ -167,10 +113,6 @@ class AStarSolver(BaseSolver):
             "solution": solution,
             "metrics":  self.metrics.to_dict(),
         }
-
-                                                                        
-                  
-                                                                        
 
     def _run(self) -> Optional[List[List[int]]]:
         n          = self._n
@@ -277,12 +219,7 @@ class AStarSolver(BaseSolver):
                     })
                 step += 1
 
-        return None
-
-
-                                                                             
-         
-                                                                             
+        return None                                                                  
 
 def _signature(domains: Domain) -> frozenset:
     """

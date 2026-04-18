@@ -187,7 +187,6 @@ def _build_grid_html(
 
 
 def render_grid_simple(grid: List[List[int]], size: int) -> None:
-    """Render a simple grid without constraints (for quick display)."""
     render_grid(grid=grid, size=size)
 
 

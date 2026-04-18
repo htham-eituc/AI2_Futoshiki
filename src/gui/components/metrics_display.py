@@ -11,14 +11,6 @@ def render_metrics(
     is_live: bool = False,
     show_title: bool = True,
 ) -> None:
-    """
-    Render algorithm metrics display.
-    
-    Args:
-        metrics: Dictionary of metric values.
-        is_live: Whether metrics are updating live.
-        show_title: Whether to show the "Metrics" title.
-    """
     if show_title:
         title = "Live Metrics" if is_live else "Final Metrics"
         st.markdown(f"### {title}")
@@ -79,13 +71,6 @@ def render_final_status(
     is_solved: bool,
     message: str = "",
 ) -> None:
-    """
-    Render final solve status.
-    
-    Args:
-        is_solved: Whether puzzle was solved.
-        message: Optional status message.
-    """
     if is_solved:
         st.success(message or "Puzzle Solved!")
     else:
@@ -93,12 +78,6 @@ def render_final_status(
 
 
 def render_algorithm_badge(algorithm_name: str) -> None:
-    """
-    Display the current algorithm name prominently.
-    
-    Args:
-        algorithm_name: Name of the algorithm.
-    """
     st.markdown(
         f"""
         <div style="
@@ -122,18 +101,11 @@ def render_algorithm_badge(algorithm_name: str) -> None:
 
 
 def render_step_message(message: str) -> None:
-    """
-    Display a step message/status.
-    
-    Args:
-        message: Message to display.
-    """
     if message:
         st.info(message)
 
 
 def _format_number(n: int) -> str:
-    """Format large numbers with comma separators."""
     return f"{n:,}"
 
 

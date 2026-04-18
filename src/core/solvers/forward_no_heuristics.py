@@ -1,20 +1,3 @@
-"""
-FOL Forward Chaining Solver for Futoshiki Puzzles (WITHOUT HEURISTICS)
-
-Implements forward chaining over a grounded CNF knowledge base to:
-  1. Propagate facts via iterated unit propagation
-  2. Detect contradictions (empty clause / complementary facts)
-  3. Derive a complete assignment when possible
-
-When the KB alone cannot drive further progress (no new unit clauses),
-the solver falls back to a *splitting rule* on the FIRST UNASSIGNED CELL
-in row-major order, trying values in natural order (1 to N).
-
-This version removes the MRV (Minimum Remaining Values) and LCV (Least
-Constraining Value) heuristics to demonstrate their impact on search
-efficiency.
-"""
-
 from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -27,42 +10,19 @@ from ..utils.KB_generate.kb_generate import ground_kb
 from ..utils.KB_generate.knowledge_base import KnowledgeBase
 from ..problem.parser import futoshiki_to_puzzle_dict
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Forward Chaining Engine (NO HEURISTICS)
-# ─────────────────────────────────────────────────────────────────────────────
-
 class ForwardChainerNoHeuristics:
-    """
-    FOL Forward Chaining over a grounded CNF knowledge base WITHOUT heuristics.
-
-    Algorithm
-    ---------
-    Same as ForwardChainer but uses naive search strategies:
-      - Variable selection: First unassigned cell in row-major order
-      - Value ordering: Natural order (1 to N)
-
-    This trades optimality in search for simplicity, resulting in a baseline
-    for comparing against heuristic-guided search performance.
-    """
 
     def __init__(self, metrics: Any, N: int) -> None:
         self.N       = N
         self.metrics = metrics
 
-    # ── public entry point ────────────────────────────────────────────────
 
     def run(self, kb: KnowledgeBase) -> Optional[List[List[int]]]:
-        """
-        Entry point.
-        Returns the solved grid as a 0-indexed List[List[int]], or None (UNSAT).
-        """
         result = self._fc(kb)
         if result is None:
             return None
         return self._extract_grid(result)
 
-    # ── core recursive procedure ──────────────────────────────────────────
 
     def _fc(self, kb: KnowledgeBase) -> Optional[KnowledgeBase]:
         """
@@ -121,16 +81,7 @@ class ForwardChainerNoHeuristics:
 
         return None
 
-    # ── propagation ───────────────────────────────────────────────────────
-
     def _propagate(self, kb: KnowledgeBase) -> Optional[KnowledgeBase]:
-        """
-        Run kb.simplify() (unit propagation) to a fixed point, then check
-        for two kinds of contradiction:
-          1. Empty clause        — standard DPLL / unit-propagation signal
-          2. Complementary facts — both L and ¬L asserted in kb.facts
-        Returns the simplified kb on success, None on contradiction.
-        """
         kb.simplify()
 
         if kb.has_empty_clause():
@@ -142,15 +93,9 @@ class ForwardChainerNoHeuristics:
 
         return kb
 
-    # ── domain inference ──────────────────────────────────────────────────
-
     def _compute_domains(
         self, kb: KnowledgeBase
     ) -> Dict[Tuple[int, int], Set[int]]:
-        """
-        For every cell (i,j), compute the set of values still possible
-        under the current KB facts.
-        """
         cells   = range(1, self.N + 1)
         vals    = range(1, self.N + 1)
         domains : Dict[Tuple[int, int], Set[int]] = {}
@@ -171,8 +116,6 @@ class ForwardChainerNoHeuristics:
                 domains[(i, j)] = {fixed} if fixed is not None else possible
 
         return domains
-
-    # ── naive variable / value ordering (NO HEURISTICS) ──────────────────
 
     def _first_unassigned_cell(
         self, domains: Dict[Tuple[int, int], Set[int]]
@@ -217,22 +160,10 @@ class ForwardChainerNoHeuristics:
 
         return [[buf[i][j] for j in cells] for i in cells]
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# BaseSolver integration
-# ─────────────────────────────────────────────────────────────────────────────
-
 @SolverFactory.register("forward_chaining_no_heuristics")
 class ForwardChainingSolverNoHeuristics(BaseSolver):
     """
     FOL Forward Chaining solver WITHOUT heuristics.
-
-    Registered as "forward_chaining_no_heuristics" in SolverFactory:
-
-        solver = SolverFactory.create("forward_chaining_no_heuristics", problem)
-        result = solver.solve()
-
-    Identical return format to ForwardChainingSolver.
     """
 
     def __init__(self, problem: Any, *, name: Optional[str] = None) -> None:
