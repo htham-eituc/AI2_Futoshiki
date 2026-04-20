@@ -9,6 +9,7 @@ import streamlit as st
 from ..services.visualization_service import VisualizationService, StepState
 from .grid_display import render_grid
 from .step_controls import render_step_controls, render_speed_slider
+from core.solvers.base_solver import SolverFactory
 from .metrics_display import (
     render_metrics,
     render_final_status,
@@ -28,6 +29,7 @@ def _init_session_state() -> None:
         "viz_speed": 500,
         "viz_puzzle_data": None,
         "viz_given_cells": set(),
+        "viz_verification": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -108,7 +110,40 @@ def render_step_visualization() -> None:
             index=0,
             key="testcase_select",
         )
-        
+
+        puzzle_data = None
+        if selected_testcase:
+            filepath = testcase_paths[selected_testcase]
+            try:
+                puzzle_data = VisualizationService.load_puzzle(filepath)
+            except Exception:
+                puzzle_data = None
+
+        query_target_cell: Optional[Tuple[int, int]] = None
+        query_single = False
+        if selected_algo == "backward_chaining" and puzzle_data is not None:
+            query_single = st.checkbox(
+                "Query a single cell only",
+                value=False,
+                key="bc_query_single_cell",
+            )
+            if query_single:
+                size = puzzle_data.size
+                st.markdown("#### Select target cell")
+                row = st.selectbox(
+                    "Target row",
+                    options=list(range(1, size + 1)),
+                    index=0,
+                    key="bc_query_row",
+                )
+                col = st.selectbox(
+                    "Target column",
+                    options=list(range(1, size + 1)),
+                    index=0,
+                    key="bc_query_col",
+                )
+                query_target_cell = (row, col)
+
         st.markdown("---")
         
                             
@@ -117,6 +152,7 @@ def render_step_visualization() -> None:
                 st.session_state["viz_steps"] = []
                 st.session_state["viz_current_step"] = 0
                 st.session_state["viz_is_playing"] = False
+                st.session_state["viz_verification"] = None
                 st.rerun()
         else:
             if st.button("Start Visualization", use_container_width=True, type="primary"):
@@ -126,19 +162,53 @@ def render_step_visualization() -> None:
                 else:
                     with st.spinner("Loading puzzle and generating steps..."):
                         try:
-                                         
                             filepath = testcase_paths[selected_testcase]
                             puzzle_data = VisualizationService.load_puzzle(filepath)
                             
-                                               
                             given_cells = _get_given_cells(puzzle_data.grid, puzzle_data.size)
                             
-                                                
                             steps = list(VisualizationService.run_algorithm_steps(
-                                selected_algo, puzzle_data
+                                selected_algo,
+                                puzzle_data,
+                                target_cell=query_target_cell,
                             ))
-                            
-                                                    
+
+                            verification_msg = None
+                            if selected_algo == "backward_chaining" and query_target_cell is not None:
+                                try:
+                                    backtracking = SolverFactory.create("backtracking", puzzle_data)
+                                    backtracking_result = backtracking.solve()
+                                    backtracking_solution = backtracking_result.get("solution")
+                                    query_value = None
+                                    if steps:
+                                        last_grid = steps[-1].grid
+                                        r, c = query_target_cell[0] - 1, query_target_cell[1] - 1
+                                        query_value = last_grid[r][c]
+
+                                    if backtracking_solution is None:
+                                        verification_msg = (
+                                            "Backtracking could not solve the puzzle, so the cell value cannot be verified."
+                                        )
+                                    elif query_value is None or query_value == 0:
+                                        verification_msg = (
+                                            "Backward chaining did not return a concrete value for the selected cell."
+                                        )
+                                    else:
+                                        expected_value = backtracking_solution[query_target_cell[0] - 1][query_target_cell[1] - 1]
+                                        if query_value == expected_value:
+                                            verification_msg = (
+                                                f"Verified: Backtracking confirms cell ({query_target_cell[0]},{query_target_cell[1]}) = {query_value}."
+                                            )
+                                        else:
+                                            verification_msg = (
+                                                f"Mismatch: Backtracking expects {expected_value} at ({query_target_cell[0]},{query_target_cell[1]}) "
+                                                f"but backward chaining returned {query_value}."
+                                            )
+                                except Exception as verify_error:
+                                    verification_msg = (
+                                        f"Verification failed: {verify_error}"
+                                    )
+
                             st.session_state["viz_algorithm"] = selected_algo
                             st.session_state["viz_testcase"] = selected_testcase
                             st.session_state["viz_puzzle_data"] = puzzle_data
@@ -146,12 +216,9 @@ def render_step_visualization() -> None:
                             st.session_state["viz_current_step"] = 0
                             st.session_state["viz_given_cells"] = given_cells
                             st.session_state["viz_is_playing"] = False
-                            
-                            st.rerun()
+                            st.session_state["viz_verification"] = verification_msg
                         except Exception as e:
                             st.error(f"Error loading puzzle: {e}")
-        
-                                                           
         if st.session_state["viz_steps"]:
             st.markdown("---")
             st.markdown("### Playback Speed")
@@ -165,18 +232,34 @@ def render_step_visualization() -> None:
                                   
     with right_col:
         if not st.session_state["viz_steps"]:
-                                                        
-            st.markdown(
-                """
-                <div class="empty-state">
-                    <h3>Ready to Visualize</h3>
-                    <p style="margin: 0; font-size: 15px;">
-                        Select an algorithm and test case from the left panel, then click "Start Visualization"
-                    </p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            if puzzle_data is not None:
+                st.markdown("### Puzzle Preview")
+                render_grid(
+                    grid=puzzle_data.grid,
+                    size=puzzle_data.size,
+                    h_constraints=puzzle_data.h_constraints,
+                    v_constraints=puzzle_data.v_constraints,
+                    active_cell=None,
+                    changed_cell=None,
+                    conflict_cells=[],
+                    given_cells=_get_given_cells(puzzle_data.grid, puzzle_data.size),
+                )
+                if selected_algo == "backward_chaining" and query_target_cell is not None:
+                    st.markdown(
+                        f"**Selected cell:** ({query_target_cell[0]},{query_target_cell[1]})"
+                    )
+            else:
+                st.markdown(
+                    """
+                    <div class="empty-state">
+                        <h3>Ready to Visualize</h3>
+                        <p style="margin: 0; font-size: 15px;">
+                            Select an algorithm and test case from the left panel, then click \"Start Visualization\"
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
         else:
                               
             steps = st.session_state["viz_steps"]
@@ -247,6 +330,9 @@ def render_step_visualization() -> None:
                     is_solved=current_step.is_solved,
                     message=current_step.message,
                 )
+                if st.session_state.get("viz_verification"):
+                    st.markdown("---")
+                    st.info(st.session_state["viz_verification"])
             
                              
             if st.session_state["viz_is_playing"] and can_next:

@@ -114,6 +114,7 @@ class VisualizationService:
         cls,
         algorithm_name: str,
         puzzle_data: FutoshikiData,
+        target_cell: Optional[Tuple[int, int]] = None,
     ) -> Generator[StepState, None, None]:
                                                      
         yield StepState(
@@ -149,7 +150,7 @@ class VisualizationService:
 
         elif algorithm_name == "backward_chaining":
             solver = SolverFactory.create(algorithm_name, puzzle_data)
-            yield from solver.solve_steps(puzzle_data)
+            yield from solver.solve_steps(puzzle_data, target_cell=target_cell)
 
         elif algorithm_name == "backtracking":
             solver = SolverFactory.create(algorithm_name, puzzle_data)

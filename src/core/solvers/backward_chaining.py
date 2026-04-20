@@ -166,6 +166,21 @@ class SLDInterpreter:
 
         return None
 
+    def query_cell(
+        self,
+        row: int,
+        col: int,
+        initial_assignments: Optional[Assignments] = None,
+    ) -> Optional[int]:
+        goal = [("val", row, col, "?V")]
+        seed = dict(initial_assignments) if initial_assignments else {}
+
+        for _, assignments in self._solve(goal, {}, seed):
+            value = assignments.get((row, col))
+            if value is not None and not is_var(value):
+                return value
+        return None
+
     def _solve(
         self,
         goals:       List[tuple],
@@ -327,20 +342,20 @@ class SLDInterpreter:
                         return
             yield theta, assignments
 
-        return
-
-
 @SolverFactory.register("backward_chaining")
 class BackwardChainingSolver(BaseSolver):
 
     def __init__(self, problem: Any, *, name: Optional[str] = None) -> None:
         super().__init__(problem, name=name or "BackwardChaining")
-        self.n       = problem.size
-        self._puzzle = futoshiki_to_puzzle_dict(problem)
+        self.n        = problem.size
+        self._puzzle  = futoshiki_to_puzzle_dict(problem)
+        self._problem = problem
 
-                                                                            
-
-    def solve_steps(self, puzzle_data: Any) -> Generator[Any, None, None]:
+    def solve_steps(
+        self,
+        puzzle_data: Any,
+        target_cell: Optional[Tuple[int, int]] = None,
+    ) -> Generator[Any, None, None]:
         from gui.services.visualization_service import StepState
 
         self.metrics.start()
@@ -361,14 +376,26 @@ class BackwardChainingSolver(BaseSolver):
                 for (r, c), v in self._puzzle["given"].items()
             }
 
-                                                     
             snapshots: List[Tuple[int, int, int, bool]] = []
 
-            interp  = SLDInterpreter(rules, facts, self.n, self.metrics,
-                                     snapshots=snapshots)
-            solution = interp.query_all_cells(initial_assignments=given_seed)
+            interp = SLDInterpreter(
+                rules,
+                facts,
+                self.n,
+                self.metrics,
+                snapshots=snapshots,
+            )
 
-                              
+            if target_cell is None:
+                solution = interp.query_all_cells(initial_assignments=given_seed)
+            else:
+                row, col = target_cell
+                solution = interp.query_cell(
+                    row,
+                    col,
+                    initial_assignments=given_seed,
+                )
+
             display_grid = [row[:] for row in puzzle_data.grid]
             step_num     = 1
 
@@ -400,11 +427,18 @@ class BackwardChainingSolver(BaseSolver):
                 step_num += 1
 
                         
-            final_grid = solution if solution else [row[:] for row in puzzle_data.grid]
+            if target_cell is not None:
+                final_grid = [row[:] for row in puzzle_data.grid]
+                if solution is not None:
+                    r, c = target_cell[0] - 1, target_cell[1] - 1
+                    final_grid[r][c] = solution
+            else:
+                final_grid = solution if solution else [row[:] for row in puzzle_data.grid]
+
             yield StepState(
                 step_number    = step_num,
                 grid           = final_grid,
-                message        = "Puzzle solved" if solution else "No solution found",
+                message        = "Query completed" if solution is not None else "No solution found",
                 metrics        = current_metrics(),
                 is_complete    = True,
                 is_solved      = solution is not None,
